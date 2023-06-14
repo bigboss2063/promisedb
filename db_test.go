@@ -14,8 +14,11 @@
 package ApexDB
 
 import (
+	"fmt"
+	"github.com/bigboss2063/ApexDB/pkg/util"
 	"github.com/stretchr/testify/assert"
 	"os"
+	"sync"
 	"testing"
 )
 
@@ -44,6 +47,24 @@ func TestDB_Put(t *testing.T) {
 
 	err = db.Put([]byte("key-2"), nil)
 	assert.Nil(t, err)
+
+	for i := 0; i < 100000; i++ {
+		err := db.Put([]byte(fmt.Sprintf("%09d", i)), util.RandomBytes(1024))
+		assert.Nil(t, err)
+	}
+
+	err = db.Close()
+	assert.Nil(t, err)
+
+	db, err = Open(DefaultOption())
+
+	for i := 0; i < 100000; i++ {
+		err := db.Put([]byte(fmt.Sprintf("%09d", i)), util.RandomBytes(1024))
+		assert.Nil(t, err)
+	}
+
+	assert.Equal(t, len(db.archivedFiles), 3)
+	assert.Equal(t, db.keyDir.Size(), 100002)
 
 	err = db.Close()
 	assert.Nil(t, err)
@@ -78,6 +99,28 @@ func TestDB_Get(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Equal(t, err, ErrKeyNotExist)
 
+	for i := 0; i < 200000; i++ {
+		err := db.Put([]byte(fmt.Sprintf("%09d", i)), []byte(fmt.Sprintf("%09d", i)))
+		assert.Nil(t, err)
+	}
+
+	for i := 0; i < 200000; i++ {
+		et, err := db.Get([]byte(fmt.Sprintf("%09d", i)))
+		assert.Nil(t, err)
+		assert.Equal(t, et.Value, []byte(fmt.Sprintf("%09d", i)))
+	}
+
+	err = db.Close()
+	assert.Nil(t, err)
+
+	db, err = Open(DefaultOption())
+
+	for i := 0; i < 200000; i++ {
+		et, err := db.Get([]byte(fmt.Sprintf("%09d", i)))
+		assert.Nil(t, err)
+		assert.Equal(t, et.Value, []byte(fmt.Sprintf("%09d", i)))
+	}
+
 	err = db.Close()
 	assert.Nil(t, err)
 
@@ -104,4 +147,64 @@ func TestDB_Del(t *testing.T) {
 	err = db.Del([]byte("key-1"))
 	assert.NotNil(t, err)
 	assert.Equal(t, err, ErrKeyNotExist)
+
+	err = db.Close()
+	assert.Nil(t, err)
+
+	err = os.RemoveAll(db.option.Path)
+	assert.Nil(t, err)
+}
+
+func TestDB_Replace_Active_File(t *testing.T) {
+	db, err := Open(DefaultOption())
+	assert.Nil(t, err)
+	assert.NotNil(t, db)
+
+	for i := 0; i < 100000; i++ {
+		err := db.Put([]byte(fmt.Sprintf("%09d", i)), util.RandomBytes(1024))
+		assert.Nil(t, err)
+	}
+
+	assert.NotEqual(t, len(db.archivedFiles), 0)
+
+	err = db.Close()
+	assert.Nil(t, err)
+
+	err = os.RemoveAll(db.option.Path)
+	assert.Nil(t, err)
+}
+
+func TestDB_Concurrency(t *testing.T) {
+	db, err := Open(DefaultOption())
+	assert.Nil(t, err)
+	assert.NotNil(t, db)
+
+	wg := new(sync.WaitGroup)
+
+	wg.Add(200000)
+	for i := 0; i < 200000; i++ {
+		go func(i int) {
+			err := db.Put([]byte(fmt.Sprintf("%09d", i)), []byte(fmt.Sprintf("%09d", i)))
+			assert.Nil(t, err)
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+
+	wg.Add(200000)
+	for i := 0; i < 200000; i++ {
+		go func(i int) {
+			et, err := db.Get([]byte(fmt.Sprintf("%09d", i)))
+			assert.Nil(t, err)
+			assert.Equal(t, et.Value, []byte(fmt.Sprintf("%09d", i)))
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+
+	err = db.Close()
+	assert.Nil(t, err)
+
+	err = os.RemoveAll(db.option.Path)
+	assert.Nil(t, err)
 }
