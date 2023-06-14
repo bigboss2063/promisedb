@@ -30,13 +30,13 @@ var (
 )
 
 type DB struct {
-	lock          *sync.RWMutex
-	option        *Option
-	activeFile    *DataFile
-	archivedFiles map[uint32]*DataFile
-	fid           []uint32
-	keyDir        Index
-	nextFileId    uint32
+	lock            *sync.RWMutex
+	option          *Option
+	activeFile      *DataFile
+	archivedFiles   map[uint32]*DataFile
+	archivedFileIds []uint32
+	keyDir          Index
+	nextFileId      uint32
 }
 
 func Open(option *Option) (*DB, error) {
@@ -107,14 +107,14 @@ func (db *DB) loadDataFiles() error {
 		return fid[i] < fid[j]
 	})
 
-	db.fid = fid
+	db.archivedFileIds = fid
 	db.nextFileId = maxDataFileId + 1
 
 	return nil
 }
 
 func (db *DB) loadIndexFromFiles() error {
-	for _, id := range db.fid {
+	for _, id := range db.archivedFileIds {
 		df := db.archivedFiles[id]
 		offset := 0
 		for {
@@ -213,6 +213,7 @@ func (db *DB) put(et *Entry) error {
 	}
 
 	if db.activeFile.size >= db.option.MaxDataFileSize {
+		db.archivedFileIds = append(db.archivedFileIds, db.activeFile.fileId)
 		db.archivedFiles[db.activeFile.fileId] = db.activeFile
 		newDataFile, err := NewDataFile(db.option.Path, db.nextFileId)
 		if err != nil {
