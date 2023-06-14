@@ -17,12 +17,14 @@ import (
 	"errors"
 	"github.com/bigboss2063/ApexDB/pkg/binaryx"
 	"hash/crc32"
+	"time"
 )
 
 type EntryType = uint16
 
 const (
 	NormalEntry EntryType = iota
+	Tombstone
 )
 
 const EntryMetaSize = 2 + 4 + 8 + 4 + 4
@@ -50,6 +52,20 @@ type DataPos struct {
 	Vsz    uint32
 	Vpos   uint32
 	Tstamp uint64
+}
+
+func NewEntry(key []byte, value []byte, entryType EntryType) *Entry {
+	et := &Entry{
+		Key:   key,
+		Value: value,
+		MetaData: &MetaData{
+			EntryType: entryType,
+			Tstamp:    uint64(time.Now().Unix()),
+			Ksz:       uint32(len(key)),
+			Vsz:       uint32(len(value)),
+		},
+	}
+	return et
 }
 
 func (et *Entry) DecodeLogEntryMeta(data []byte) {
