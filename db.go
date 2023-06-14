@@ -16,6 +16,8 @@ package ApexDB
 import (
 	"errors"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -41,20 +43,61 @@ func NewApexDB(option *Option) (*DB, error) {
 		}
 	}
 
-	// TODO read a file already stored on disk
-	dataFile, err := NewDataFile(option.Path, 0)
-	if err != nil {
-		return nil, err
-	}
 	db := &DB{
 		lock:          &sync.RWMutex{},
 		option:        option,
-		activeFile:    dataFile,
 		archivedFiles: make(map[uint32]*DataFile),
 		keyDir:        NewIndex(),
-		nextFileId:    1,
 	}
+
+	err := db.loadDataFiles()
+	if err != nil {
+		return nil, err
+	}
+
+	dataFile, err := NewDataFile(db.option.Path, db.nextFileId)
+	if err != nil {
+		return nil, err
+	}
+
+	db.activeFile = dataFile
+
 	return db, nil
+}
+
+func (db *DB) loadDataFiles() error {
+	db.lock.Lock()
+	defer db.lock.Unlock()
+
+	entries, err := os.ReadDir(db.option.Path)
+
+	if err != nil {
+		return err
+	}
+
+	var maxDataFileId uint32 = 0
+
+	for _, et := range entries {
+		if strings.HasSuffix(et.Name(), DataFileSuffix) {
+			n, err := strconv.ParseUint(strings.Split(et.Name(), ".")[0], 10, 32)
+			if err != nil {
+				return err
+			}
+
+			dataFileId := uint32(n)
+
+			if dataFileId > maxDataFileId {
+				maxDataFileId = dataFileId
+			}
+
+			dataFile, err := openDataFile(db.option.Path, dataFileId)
+			db.archivedFiles[dataFileId] = dataFile
+		}
+	}
+
+	db.nextFileId = maxDataFileId + 1
+
+	return nil
 }
 
 func (db *DB) Get(key []byte) (*Entry, error) {

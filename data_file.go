@@ -15,6 +15,7 @@ package ApexDB
 
 import (
 	"fmt"
+	"os"
 )
 
 const DataFileSuffix = ".apex"
@@ -47,6 +48,20 @@ func NewDataFile(path string, fileId uint32) (*DataFile, error) {
 		rwManager: fd,
 	}
 	return datafile, nil
+}
+
+func openDataFile(path string, fileId uint32) (*DataFile, error) {
+	df, err := NewDataFile(path, fileId)
+	if err != nil {
+		return nil, err
+	}
+	stat, err := os.Stat(df.path)
+	if err != nil {
+		return nil, err
+	}
+	df.offset = uint32(stat.Size())
+	df.size = uint32(stat.Size())
+	return df, nil
 }
 
 func (df *DataFile) ReadAt(off int64) (*Entry, error) {
