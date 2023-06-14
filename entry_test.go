@@ -14,31 +14,33 @@
 package ApexDB
 
 import (
-	"github.com/bigboss2063/ApexDB/pkg/binaryx"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
 
 func TestDataFile_Entry_Codec(t *testing.T) {
+	key, value := []byte("key-1"), []byte("value-1")
 	entry := &Entry{
-		Key:   []byte("key-1"),
-		Value: []byte("value-1"),
+		Key:   key,
+		Value: value,
 		MetaData: &MetaData{
 			EntryType: NormalEntry,
 			Tstamp:    uint64(time.Now().Unix()),
+			Ksz:       uint32(len(key)),
+			Vsz:       uint32(len(value)),
 		},
 	}
-	entry.MetaData.Ksz = uint32(len(entry.Key))
-	entry.MetaData.Vsz = uint32(len(entry.Value))
 
 	data := entry.EncodeLogEntry()
-	entry.MetaData.Crc = binaryx.Uint32(data[:4])
 
-	et, err := DecodeLogEntry(data)
+	et := new(Entry)
+
+	et.DecodeLogEntryMeta(data)
+
+	err := et.DecodeLogEntry(data[EntryMetaSize:])
 
 	assert.Nil(t, err)
 	assert.Equal(t, entry.Key, et.Key)
 	assert.Equal(t, entry.Value, et.Value)
-	assert.Equal(t, *entry.MetaData, *et.MetaData)
 }

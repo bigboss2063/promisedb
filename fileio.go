@@ -15,22 +15,33 @@ package ApexDB
 
 import "os"
 
-type FileIO struct {
-	fd *os.File
+type Fd struct {
+	f *os.File
 }
 
-func (f *FileIO) ReadAt(data []byte, off int64) (n int, err error) {
-	return f.fd.ReadAt(data, off)
+func NewFd(path string) (*Fd, error) {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
+	if err != nil {
+		return nil, err
+	}
+	fd := &Fd{
+		f: f,
+	}
+	return fd, nil
 }
 
-func (f *FileIO) WriteAt(data []byte, off int64) (n int, err error) {
-	return f.fd.WriteAt(data, off)
+func (fd *Fd) ReadAt(data []byte, off int64) (n int, err error) {
+	return fd.f.ReadAt(data, off)
 }
 
-func (f *FileIO) Sync() (err error) {
-	return f.fd.Sync()
+func (fd *Fd) WriteAt(data []byte, off int64) (n int, err error) {
+	return fd.f.WriteAt(data, off)
 }
 
-func (f *FileIO) Close() (err error) {
-	return f.fd.Close()
+func (fd *Fd) Sync() (err error) {
+	return fd.f.Sync()
+}
+
+func (fd *Fd) Close() (err error) {
+	return fd.f.Close()
 }

@@ -25,10 +25,10 @@ const (
 	NormalEntry EntryType = iota
 )
 
-const EntryHeaderSize = 2 + 4 + 8 + 4 + 4
+const EntryMetaSize = 2 + 4 + 8 + 4 + 4
 
 var (
-	ErrDataEntryWrong = errors.New("the data of entry is wrong")
+	ErrEntryWrong = errors.New("the data of entry is wrong")
 )
 
 type MetaData struct {
@@ -52,36 +52,32 @@ type DataPos struct {
 	Tstamp uint64
 }
 
-func DecodeLogEntry(data []byte) (*Entry, error) {
-	crc := binaryx.Uint32(data[:4])
-	if crc != crc32.ChecksumIEEE(data[4:]) {
-		return nil, ErrDataEntryWrong
+func (et *Entry) DecodeLogEntryMeta(data []byte) {
+
+	metaData := &MetaData{
+		Crc:       binaryx.Uint32(data[:4]),
+		EntryType: binaryx.Uint16(data[4:6]),
+		Tstamp:    binaryx.Uint64(data[6:14]),
+		Ksz:       binaryx.Uint32(data[14:18]),
+		Vsz:       binaryx.Uint32(data[18:22]),
 	}
 
-	entryType := binaryx.Uint16(data[4:6])
-	tstamp := binaryx.Uint64(data[6:14])
-	ksz := binaryx.Uint32(data[14:18])
-	vsz := binaryx.Uint32(data[18:22])
-	key := data[22 : 22+int(ksz)]
-	value := data[len(data)-int(vsz):]
+	et.MetaData = metaData
+}
 
-	entry := &Entry{
-		Key:   key,
-		Value: value,
-		MetaData: &MetaData{
-			Crc:       crc,
-			EntryType: entryType,
-			Tstamp:    tstamp,
-			Ksz:       ksz,
-			Vsz:       vsz,
-		},
+func (et *Entry) DecodeLogEntry(data []byte) error {
+
+	if et.MetaData.Crc != crc32.ChecksumIEEE(data) {
+		return ErrEntryWrong
 	}
 
-	return entry, nil
+	et.Key = data[:et.MetaData.Ksz]
+	et.Value = data[et.MetaData.Ksz:]
+	return nil
 }
 
 func (et *Entry) EncodeLogEntry() []byte {
-	buf := make([]byte, 0, EntryHeaderSize+len(et.Key)+len(et.Value))
+	buf := make([]byte, 0, EntryMetaSize+len(et.Key)+len(et.Value))
 
 	buf = append(buf, binaryx.PutUint32(et.MetaData.Crc)...)
 	buf = append(buf, binaryx.PutUint16(et.MetaData.EntryType)...)
@@ -91,12 +87,11 @@ func (et *Entry) EncodeLogEntry() []byte {
 	buf = append(buf, et.Key...)
 	buf = append(buf, et.Value...)
 
-	crc := binaryx.PutUint32(crc32.ChecksumIEEE(buf[4:]))
-	copy(buf[:4], crc)
+	copy(buf[:4], binaryx.PutUint32(crc32.ChecksumIEEE(buf[EntryMetaSize:])))
 
 	return buf
 }
 
 func (et *Entry) Size() int {
-	return EntryHeaderSize + len(et.Key) + len(et.Value)
+	return EntryMetaSize + len(et.Key) + len(et.Value)
 }
