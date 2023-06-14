@@ -11,22 +11,37 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package index
+package ApexDB
 
 import (
-	"github.com/bigboss2063/ApexDB"
 	"sync"
 )
 
-type Index interface {
-	Put(key string, dataPost *ApexDB.DataPos)
-	Get(key string) *ApexDB.DataPos
-	Del(key string)
-	Size() int
+type HashTable struct {
+	index sync.Map
 }
 
-func NewIndex() Index {
-	return &HashTable{
-		index: sync.Map{},
+func (h *HashTable) Put(key string, dataPost *DataPos) {
+	h.index.Store(key, dataPost)
+}
+
+func (h *HashTable) Get(key string) *DataPos {
+	value, ok := h.index.Load(key)
+	if ok {
+		return value.(*DataPos)
 	}
+	return nil
+}
+
+func (h *HashTable) Del(key string) {
+	h.index.Delete(key)
+}
+
+func (h *HashTable) Size() int {
+	size := 0
+	h.index.Range(func(key, value any) bool {
+		size++
+		return true
+	})
+	return size
 }
