@@ -20,7 +20,7 @@ import (
 )
 
 func TestDB_Open_Close(t *testing.T) {
-	db, err := NewApexDB(DefaultOption())
+	db, err := Open(DefaultOption())
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
@@ -32,7 +32,7 @@ func TestDB_Open_Close(t *testing.T) {
 }
 
 func TestDB_Put(t *testing.T) {
-	db, err := NewApexDB(DefaultOption())
+	db, err := Open(DefaultOption())
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
@@ -53,7 +53,7 @@ func TestDB_Put(t *testing.T) {
 }
 
 func TestDB_Get(t *testing.T) {
-	db, err := NewApexDB(DefaultOption())
+	db, err := Open(DefaultOption())
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
@@ -86,7 +86,7 @@ func TestDB_Get(t *testing.T) {
 }
 
 func TestDB_Del(t *testing.T) {
-	db, err := NewApexDB(DefaultOption())
+	db, err := Open(DefaultOption())
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 

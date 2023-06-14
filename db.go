@@ -15,7 +15,9 @@ package ApexDB
 
 import (
 	"errors"
+	"io"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,11 +34,12 @@ type DB struct {
 	option        *Option
 	activeFile    *DataFile
 	archivedFiles map[uint32]*DataFile
+	fid           []uint32
 	keyDir        Index
 	nextFileId    uint32
 }
 
-func NewApexDB(option *Option) (*DB, error) {
+func Open(option *Option) (*DB, error) {
 	if _, err := os.Stat(option.Path); os.IsNotExist(err) {
 		if err = os.MkdirAll(option.Path, os.ModePerm); err != nil {
 			return nil, err
@@ -55,6 +58,11 @@ func NewApexDB(option *Option) (*DB, error) {
 		return nil, err
 	}
 
+	err = db.loadIndexFromFiles()
+	if err != nil {
+		return nil, err
+	}
+
 	dataFile, err := NewDataFile(db.option.Path, db.nextFileId)
 	if err != nil {
 		return nil, err
@@ -66,9 +74,6 @@ func NewApexDB(option *Option) (*DB, error) {
 }
 
 func (db *DB) loadDataFiles() error {
-	db.lock.Lock()
-	defer db.lock.Unlock()
-
 	entries, err := os.ReadDir(db.option.Path)
 
 	if err != nil {
@@ -76,6 +81,7 @@ func (db *DB) loadDataFiles() error {
 	}
 
 	var maxDataFileId uint32 = 0
+	fid := make([]uint32, 0)
 
 	for _, et := range entries {
 		if strings.HasSuffix(et.Name(), DataFileSuffix) {
@@ -92,11 +98,43 @@ func (db *DB) loadDataFiles() error {
 
 			dataFile, err := openDataFile(db.option.Path, dataFileId)
 			db.archivedFiles[dataFileId] = dataFile
+			fid = append(fid, dataFileId)
 		}
 	}
 
+	sort.Slice(fid, func(i, j int) bool {
+		return fid[i] < fid[j]
+	})
+
+	db.fid = fid
 	db.nextFileId = maxDataFileId + 1
 
+	return nil
+}
+
+func (db *DB) loadIndexFromFiles() error {
+	for _, id := range db.fid {
+		df := db.archivedFiles[id]
+		offset := 0
+		for {
+			et, err := df.ReadAt(int64(offset))
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err
+			}
+			entrySize := EntryMetaSize + len(et.Key) + len(et.Value)
+			dataPos := &DataPos{
+				FileId: id,
+				Vsz:    uint32(len(et.Value)),
+				Vpos:   uint32(offset),
+				Tstamp: et.MetaData.Tstamp,
+			}
+			db.keyDir.Put(string(et.Key), dataPos)
+			offset += entrySize
+		}
+	}
 	return nil
 }
 
