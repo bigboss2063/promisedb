@@ -22,7 +22,7 @@ const (
 
 type Option struct {
 	Path            string
-	MaxDataFileSize int
+	MaxDataFileSize uint32
 }
 
 func DefaultOption() *Option {

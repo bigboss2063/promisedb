@@ -68,6 +68,7 @@ func Open(option *Option) (*DB, error) {
 		return nil, err
 	}
 
+	db.nextFileId += 1
 	db.activeFile = dataFile
 
 	return db, nil
@@ -123,6 +124,9 @@ func (db *DB) loadIndexFromFiles() error {
 					break
 				}
 				return err
+			}
+			if et.MetaData.EntryType == Tombstone {
+				continue
 			}
 			entrySize := EntryMetaSize + len(et.Key) + len(et.Value)
 			dataPos := &DataPos{
@@ -204,10 +208,20 @@ func (db *DB) put(et *Entry) error {
 	data := et.EncodeLogEntry()
 
 	_, err := db.activeFile.WriteAt(data, int64(db.activeFile.offset))
-
 	if err != nil {
 		return err
 	}
+
+	if db.activeFile.size >= db.option.MaxDataFileSize {
+		db.archivedFiles[db.activeFile.fileId] = db.activeFile
+		newDataFile, err := NewDataFile(db.option.Path, db.nextFileId)
+		if err != nil {
+			return err
+		}
+		db.nextFileId += 1
+		db.activeFile = newDataFile
+	}
+
 	return nil
 }
 
