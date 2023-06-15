@@ -363,6 +363,10 @@ func (db *DB) Compaction() error {
 
 	db.lock.Unlock()
 
+	if len(waitingCompactFiles) == 0 {
+		return nil
+	}
+
 	option := MergeOption()
 	mergeDB, err := OpenDB(option)
 	if err != nil {

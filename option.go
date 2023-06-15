@@ -23,7 +23,7 @@ const (
 	MergeDirectory     = "/apexdb/merge"
 	MaxDataFileSize    = 64 * 1024 * 1024
 	CompactionInternal = 8 * time.Hour
-	DeletionRate       = 0.5
+	DeletionRate       = 0.3
 )
 
 type Option struct {

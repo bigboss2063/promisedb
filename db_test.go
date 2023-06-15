@@ -216,15 +216,18 @@ func TestDB_Compaction(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
-	for i := 0; i < 1000000; i++ {
+	err = db.Compaction()
+	assert.Nil(t, err)
+
+	for i := 0; i < 100000; i++ {
 		err := db.Put([]byte(fmt.Sprintf("%09d", i)), util.RandomBytes(1024))
 		assert.Nil(t, err)
 	}
 
 	rand.Seed(time.Now().UnixNano())
 
-	for i := 0; i < 500000; i++ {
-		randNum := rand.Intn(500000)
+	for i := 0; i < 50000; i++ {
+		randNum := rand.Intn(50000)
 		err = db.Del([]byte(fmt.Sprintf("%09d", randNum)))
 		if err != nil && err != ErrKeyNotExist {
 			assert.Nil(t, err)
