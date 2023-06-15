@@ -27,7 +27,7 @@ func TestNewDataFile(t *testing.T) {
 	err := os.MkdirAll(path, os.ModePerm)
 	assert.Nil(t, err)
 
-	dataFile, err := NewDataFile(path, 0)
+	dataFile, err := CreateDataFile(path, 0)
 	assert.Nil(t, err)
 	assert.NotNil(t, dataFile)
 
@@ -45,7 +45,7 @@ func TestDataFile_WriteAt_ReadAt(t *testing.T) {
 	assert.Nil(t, err)
 	defer os.RemoveAll(path)
 
-	dataFile, err := NewDataFile(path, 0)
+	dataFile, err := CreateDataFile(path, 0)
 	assert.Nil(t, err)
 	assert.NotNil(t, dataFile)
 	defer dataFile.Close()
@@ -80,7 +80,7 @@ func TestDataFile_Sync_Close(t *testing.T) {
 	err := os.MkdirAll(path, os.ModePerm)
 	assert.Nil(t, err)
 
-	dataFile, err := NewDataFile(path, 0)
+	dataFile, err := CreateDataFile(path, 0)
 	assert.Nil(t, err)
 	assert.NotNil(t, dataFile)
 

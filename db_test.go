@@ -17,13 +17,15 @@ import (
 	"fmt"
 	"github.com/bigboss2063/ApexDB/pkg/util"
 	"github.com/stretchr/testify/assert"
+	"math/rand"
 	"os"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestDB_Open_Close(t *testing.T) {
-	db, err := Open(DefaultOption())
+	db, err := OpenDB(DefaultOption())
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
@@ -35,7 +37,7 @@ func TestDB_Open_Close(t *testing.T) {
 }
 
 func TestDB_Put(t *testing.T) {
-	db, err := Open(DefaultOption())
+	db, err := OpenDB(DefaultOption())
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
@@ -56,7 +58,7 @@ func TestDB_Put(t *testing.T) {
 	err = db.Close()
 	assert.Nil(t, err)
 
-	db, err = Open(DefaultOption())
+	db, err = OpenDB(DefaultOption())
 
 	for i := 0; i < 100000; i++ {
 		err := db.Put([]byte(fmt.Sprintf("%09d", i)), util.RandomBytes(1024))
@@ -74,7 +76,7 @@ func TestDB_Put(t *testing.T) {
 }
 
 func TestDB_Get(t *testing.T) {
-	db, err := Open(DefaultOption())
+	db, err := OpenDB(DefaultOption())
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
@@ -113,7 +115,7 @@ func TestDB_Get(t *testing.T) {
 	err = db.Close()
 	assert.Nil(t, err)
 
-	db, err = Open(DefaultOption())
+	db, err = OpenDB(DefaultOption())
 
 	for i := 0; i < 200000; i++ {
 		et, err := db.Get([]byte(fmt.Sprintf("%09d", i)))
@@ -129,7 +131,7 @@ func TestDB_Get(t *testing.T) {
 }
 
 func TestDB_Del(t *testing.T) {
-	db, err := Open(DefaultOption())
+	db, err := OpenDB(DefaultOption())
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
@@ -156,7 +158,7 @@ func TestDB_Del(t *testing.T) {
 }
 
 func TestDB_Replace_Active_File(t *testing.T) {
-	db, err := Open(DefaultOption())
+	db, err := OpenDB(DefaultOption())
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
@@ -175,7 +177,7 @@ func TestDB_Replace_Active_File(t *testing.T) {
 }
 
 func TestDB_Concurrency(t *testing.T) {
-	db, err := Open(DefaultOption())
+	db, err := OpenDB(DefaultOption())
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
@@ -201,6 +203,36 @@ func TestDB_Concurrency(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
+
+	err = db.Close()
+	assert.Nil(t, err)
+
+	err = os.RemoveAll(db.option.Path)
+	assert.Nil(t, err)
+}
+
+func TestDB_Compaction(t *testing.T) {
+	db, err := OpenDB(DefaultOption())
+	assert.Nil(t, err)
+	assert.NotNil(t, db)
+
+	for i := 0; i < 1000000; i++ {
+		err := db.Put([]byte(fmt.Sprintf("%09d", i)), util.RandomBytes(1024))
+		assert.Nil(t, err)
+	}
+
+	rand.Seed(time.Now().UnixNano())
+
+	for i := 0; i < 500000; i++ {
+		randNum := rand.Intn(500000)
+		err = db.Del([]byte(fmt.Sprintf("%09d", randNum)))
+		if err != nil && err != ErrKeyNotExist {
+			assert.Nil(t, err)
+		}
+	}
+
+	err = db.Compaction()
+	assert.Nil(t, err)
 
 	err = db.Close()
 	assert.Nil(t, err)

@@ -13,21 +13,38 @@
 
 package ApexDB
 
-import "os"
+import (
+	"os"
+	"time"
+)
 
 const (
-	DBDirectory     = "/apexdb"
-	MaxDataFileSize = 64 * 1024 * 1024
+	DBDirectory        = "/apexdb"
+	MergeDirectory     = "/apexdb/merge"
+	MaxDataFileSize    = 64 * 1024 * 1024
+	CompactionInternal = 8 * time.Hour
+	DeletionRate       = 0.5
 )
 
 type Option struct {
-	Path            string
-	MaxDataFileSize uint32
+	Path               string
+	MaxDataFileSize    uint32
+	CompactionInternal time.Duration
+	DeletionRate       float64
 }
 
 func DefaultOption() *Option {
 	return &Option{
-		Path:            os.TempDir() + DBDirectory,
+		Path:               os.TempDir() + DBDirectory,
+		MaxDataFileSize:    MaxDataFileSize,
+		CompactionInternal: CompactionInternal,
+		DeletionRate:       DeletionRate,
+	}
+}
+
+func MergeOption() *Option {
+	return &Option{
+		Path:            os.TempDir() + MergeDirectory,
 		MaxDataFileSize: MaxDataFileSize,
 	}
 }

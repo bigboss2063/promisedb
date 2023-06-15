@@ -15,10 +15,12 @@ package ApexDB
 
 import (
 	"fmt"
+	"github.com/bigboss2063/ApexDB/pkg/binaryx"
 	"os"
 )
 
 const DataFileSuffix = ".apex"
+const CompactEndFlag = "end"
 
 type DataFile struct {
 	path      string
@@ -32,7 +34,46 @@ func newDataFilePath(path string, fileId uint32) string {
 	return path + "/" + fmt.Sprintf("%09d", fileId) + DataFileSuffix
 }
 
-func NewDataFile(path string, fileId uint32) (*DataFile, error) {
+func newCompactEndFlagPath(path string) string {
+	return path + "/" + CompactEndFlag
+}
+
+func CreateDataFile(path string, fileId uint32) (*DataFile, error) {
+	filePath := newDataFilePath(path, fileId)
+
+	fd, err := NewFd(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	df := &DataFile{
+		path:      filePath,
+		fileId:    fileId,
+		rwManager: fd,
+	}
+
+	_, err = df.WriteAt(binaryx.PutUint32(0), 0)
+	if err != nil {
+		return nil, err
+	}
+
+	return df, nil
+}
+
+func CreateCompactEndFlag(path string) (*DataFile, error) {
+	filePath := newCompactEndFlagPath(path)
+
+	fd, err := NewFd(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	df := &DataFile{rwManager: fd}
+
+	return df, nil
+}
+
+func OpenDataFile(path string, fileId uint32) (*DataFile, error) {
 	dataFilePath := newDataFilePath(path, fileId)
 
 	fd, err := NewFd(dataFilePath)
@@ -40,25 +81,21 @@ func NewDataFile(path string, fileId uint32) (*DataFile, error) {
 		return nil, err
 	}
 
-	datafile := &DataFile{
+	df := &DataFile{
 		path:      dataFilePath,
 		fileId:    fileId,
-		offset:    0,
-		size:      0,
 		rwManager: fd,
 	}
-	return datafile, nil
-}
 
-func openDataFile(path string, fileId uint32) (*DataFile, error) {
-	df, err := NewDataFile(path, fileId)
 	if err != nil {
 		return nil, err
 	}
+
 	stat, err := os.Stat(df.path)
 	if err != nil {
 		return nil, err
 	}
+
 	df.offset = uint32(stat.Size())
 	df.size = uint32(stat.Size())
 	return df, nil
@@ -101,6 +138,28 @@ func (df *DataFile) WriteAt(data []byte, off int64) (int, error) {
 	df.offset += uint32(len(data))
 	df.size += uint32(len(data))
 	return n, err
+}
+
+func (df *DataFile) ReadDeletionSize(data []byte) error {
+	if _, err := df.rwManager.ReadAt(data, 0); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (df *DataFile) WriteDeletionSize(length uint32) error {
+	buf := make([]byte, 4)
+	_, err := df.rwManager.ReadAt(buf, 0)
+	if err != nil {
+		return err
+	}
+
+	_, err = df.rwManager.WriteAt(binaryx.PutUint32(binaryx.Uint32(buf)+length), 0)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (df *DataFile) Sync() error {
