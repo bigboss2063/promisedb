@@ -451,12 +451,23 @@ func (db *DB) compactor() {
 }
 
 func (db *DB) Close() error {
-	err := db.activeFile.Close()
+	db.lock.Lock()
+	defer db.lock.Unlock()
+
+	err := db.activeFile.Sync()
+	if err != nil {
+		return err
+	}
+	err = db.activeFile.Close()
 	if err != nil {
 		return err
 	}
 
 	for _, fd := range db.archivedFiles {
+		err = fd.Sync()
+		if err != nil {
+			return err
+		}
 		err = fd.Close()
 		if err != nil {
 			return err
