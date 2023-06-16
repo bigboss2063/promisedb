@@ -212,8 +212,8 @@ func (db *DB) Put(key []byte, value []byte) error {
 
 	if dataPos != nil && dataPos.FileId != db.activeFile.fileId {
 		df := db.archivedFiles[dataPos.FileId]
-		deletionSize := EntryMetaSize + len(key) + len(value)
-		err := df.WriteDeletionSize(uint32(deletionSize))
+		garbageSize := EntryMetaSize + len(key) + len(value)
+		err := df.WriteGarbageSize(uint32(garbageSize))
 		if err != nil {
 			return err
 		}
@@ -271,14 +271,14 @@ func (db *DB) Del(key []byte) error {
 	db.lock.Lock()
 
 	var df *DataFile
-	var deletionSize int
+	var garbageSize int
 	if dataPos.FileId == db.activeFile.fileId {
 		df = db.activeFile
-		deletionSize = EntryMetaSize + len(key) + int(dataPos.Vsz) + et.Size()
+		garbageSize = EntryMetaSize + len(key) + int(dataPos.Vsz) + et.Size()
 	} else {
 		df = db.archivedFiles[dataPos.FileId]
-		deletionSize = EntryMetaSize + len(key) + int(dataPos.Vsz)
-		err := db.activeFile.WriteDeletionSize(uint32(et.Size()))
+		garbageSize = EntryMetaSize + len(key) + int(dataPos.Vsz)
+		err := db.activeFile.WriteGarbageSize(uint32(et.Size()))
 		if err != nil {
 			return err
 		}
@@ -288,7 +288,7 @@ func (db *DB) Del(key []byte) error {
 		return ErrDataFileNotExist
 	}
 
-	err := df.WriteDeletionSize(uint32(deletionSize))
+	err := df.WriteGarbageSize(uint32(garbageSize))
 	if err != nil {
 		return err
 	}
@@ -318,7 +318,7 @@ func (db *DB) Compaction() error {
 	}()
 
 	buf := make([]byte, 4)
-	err := db.activeFile.ReadDeletionSize(buf)
+	err := db.activeFile.ReadGarbageSize(buf)
 	if err != nil {
 		return err
 	}
@@ -336,7 +336,7 @@ func (db *DB) Compaction() error {
 
 	for _, fileId := range db.archivedFileIds {
 		df := db.archivedFiles[fileId]
-		if err := df.ReadDeletionSize(buf); err != nil {
+		if err := df.ReadGarbageSize(buf); err != nil {
 			return err
 		}
 		deletionSize = float64(binaryx.Uint32(buf))

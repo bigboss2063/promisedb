@@ -140,14 +140,14 @@ func (df *DataFile) WriteAt(data []byte, off int64) (int, error) {
 	return n, err
 }
 
-func (df *DataFile) ReadDeletionSize(data []byte) error {
+func (df *DataFile) ReadGarbageSize(data []byte) error {
 	if _, err := df.rwManager.ReadAt(data, 0); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (df *DataFile) WriteDeletionSize(length uint32) error {
+func (df *DataFile) WriteGarbageSize(length uint32) error {
 	buf := make([]byte, 4)
 	_, err := df.rwManager.ReadAt(buf, 0)
 	if err != nil {
