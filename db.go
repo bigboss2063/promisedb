@@ -15,9 +15,9 @@ package ApexDB
 
 import (
 	"errors"
-	"fmt"
 	"github.com/bigboss2063/ApexDB/pkg/binaryx"
 	"io"
+	"log"
 	"os"
 	"os/signal"
 	"sort"
@@ -84,7 +84,6 @@ func OpenDB(option *Option) (*DB, error) {
 
 func (db *DB) loadDataFiles() error {
 	entries, err := os.ReadDir(db.option.Path)
-
 	if err != nil {
 		return err
 	}
@@ -116,7 +115,7 @@ func (db *DB) loadDataFiles() error {
 		if err != nil {
 			return err
 		}
-		if int(id) == len(fid)-1 {
+		if id == fid[len(fid)-1] {
 			db.activeFile = dataFile
 		} else {
 			db.archivedFiles[id] = dataFile
@@ -183,8 +182,6 @@ func (db *DB) Get(key []byte) (*Entry, error) {
 	var datafile *DataFile
 
 	if dataPos.FileId == db.activeFile.fileId {
-		db.lock.RLock()
-		defer db.lock.RUnlock()
 		datafile = db.activeFile
 	} else if df, ok := db.archivedFiles[dataPos.FileId]; ok {
 		datafile = df
@@ -222,51 +219,41 @@ func (db *DB) Put(key []byte, value []byte) error {
 		}
 	}
 
-	vpos := db.activeFile.offset
-	err := db.appendLogEntry(et)
-
-	db.lock.Unlock()
-
+	dataPos, err := db.appendLogEntry(et)
 	if err != nil {
 		return err
 	}
 
-	db.keyDir.Put(string(key), &DataPos{
-		FileId: db.activeFile.fileId,
-		Vsz:    uint32(len(value)),
-		Vpos:   vpos,
-		Tstamp: et.MetaData.Tstamp,
-	})
+	db.lock.Unlock()
+
+	db.keyDir.Put(string(key), dataPos)
 
 	return nil
 }
 
-func (db *DB) appendLogEntry(et *Entry) error {
+func (db *DB) appendLogEntry(et *Entry) (*DataPos, error) {
 	data := et.EncodeLogEntry()
+
+	if db.activeFile.size+uint32(len(data)) >= db.option.MaxDataFileSize {
+		err := db.replaceActiveFile()
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	_, err := db.activeFile.WriteAt(data, int64(db.activeFile.offset))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if db.activeFile.size >= db.option.MaxDataFileSize {
-		if err := db.activeFile.Sync(); err != nil {
-			return err
-		}
-
-		db.archivedFileIds = append(db.archivedFileIds, db.activeFile.fileId)
-		db.archivedFiles[db.activeFile.fileId] = db.activeFile
-
-		newDataFile, err := CreateDataFile(db.option.Path, db.nextFileId)
-		if err != nil {
-			return err
-		}
-
-		db.nextFileId += 1
-		db.activeFile = newDataFile
+	dataPos := &DataPos{
+		FileId: db.activeFile.fileId,
+		Vsz:    et.MetaData.Vsz,
+		Vpos:   db.activeFile.offset - uint32(len(data)),
+		Tstamp: et.MetaData.Tstamp,
 	}
 
-	return nil
+	return dataPos, nil
 }
 
 func (db *DB) Del(key []byte) error {
@@ -284,28 +271,34 @@ func (db *DB) Del(key []byte) error {
 	db.lock.Lock()
 
 	var df *DataFile
+	var deletionSize int
 	if dataPos.FileId == db.activeFile.fileId {
 		df = db.activeFile
+		deletionSize = EntryMetaSize + len(key) + int(dataPos.Vsz) + et.Size()
 	} else {
 		df = db.archivedFiles[dataPos.FileId]
+		deletionSize = EntryMetaSize + len(key) + int(dataPos.Vsz)
+		err := db.activeFile.WriteDeletionSize(uint32(et.Size()))
+		if err != nil {
+			return err
+		}
 	}
 
 	if df == nil {
 		return ErrDataFileNotExist
 	}
 
-	deletionSize := EntryMetaSize + len(key) + int(dataPos.Vsz)
 	err := df.WriteDeletionSize(uint32(deletionSize))
 	if err != nil {
 		return err
 	}
 
-	err = db.appendLogEntry(et)
-	db.lock.Unlock()
-
+	_, err = db.appendLogEntry(et)
 	if err != nil {
 		return err
 	}
+
+	db.lock.Unlock()
 
 	db.keyDir.Del(string(key))
 	return nil
@@ -313,6 +306,7 @@ func (db *DB) Del(key []byte) error {
 
 func (db *DB) Compaction() error {
 	db.lock.Lock()
+	defer db.lock.Unlock()
 
 	if db.compacting {
 		return ErrCompacting
@@ -332,19 +326,10 @@ func (db *DB) Compaction() error {
 	deletionSize := float64(binaryx.Uint32(buf))
 	deletionRate := deletionSize / float64(db.activeFile.size)
 	if deletionRate >= db.option.DeletionRate {
-		if err := db.activeFile.Sync(); err != nil {
-			return err
-		}
-		db.archivedFiles[db.activeFile.fileId] = db.activeFile
-		db.archivedFileIds = append(db.archivedFileIds, db.activeFile.fileId)
-
-		newDataFile, err := CreateDataFile(db.option.Path, db.nextFileId)
+		err := db.replaceActiveFile()
 		if err != nil {
 			return err
 		}
-
-		db.nextFileId += 1
-		db.activeFile = newDataFile
 	}
 
 	waitingCompactFiles := make([]*DataFile, 0)
@@ -361,19 +346,6 @@ func (db *DB) Compaction() error {
 		}
 	}
 
-	db.lock.Unlock()
-
-	if len(waitingCompactFiles) == 0 {
-		return nil
-	}
-
-	option := MergeOption()
-	mergeDB, err := OpenDB(option)
-	if err != nil {
-		return err
-	}
-	defer mergeDB.Close()
-
 	for _, file := range waitingCompactFiles {
 		var offset int64 = 4
 		for {
@@ -387,39 +359,23 @@ func (db *DB) Compaction() error {
 
 			dataPos := db.keyDir.Get(string(et.Key))
 			if dataPos != nil && dataPos.FileId == file.fileId && dataPos.Vpos == uint32(offset) {
-				if err := mergeDB.appendLogEntry(et); err != nil {
+
+				dataPos, err = db.appendLogEntry(et)
+				if err != nil {
 					return err
 				}
-			}
 
+				db.keyDir.Put(string(et.Key), dataPos)
+			}
 			offset += int64(et.Size())
 		}
 	}
 
-	if err := mergeDB.activeFile.Sync(); err != nil {
-		return err
-	}
-
-	compactEndFlag, err := CreateCompactEndFlag(mergeDB.option.Path)
-	if err != nil {
-		return err
-	}
-
-	compactedFileIds := make([]uint32, len(waitingCompactFiles))
-
 	for _, file := range waitingCompactFiles {
-		compactedFileIds = append(compactedFileIds, file.fileId)
-	}
-
-	et := NewEntry([]byte("CompactedFiles"), []byte(strings.Join(strings.Fields(fmt.Sprint(compactedFileIds)), ",")), NormalEntry)
-	_, err = compactEndFlag.WriteAt(et.EncodeLogEntry(), 0)
-	if err != nil {
-		return err
-	}
-
-	err = compactEndFlag.Sync()
-	if err != nil {
-		return err
+		err := db.delete(file.fileId)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -442,12 +398,45 @@ func (db *DB) compactor() {
 		case <-ticker.C:
 			err := db.Compaction()
 			if err != nil {
-
+				log.Println(err.Error())
 			}
 		case <-stop:
 			return
 		}
 	}
+}
+
+func (db *DB) delete(fileId uint32) error {
+
+	df := db.archivedFiles[fileId]
+
+	delete(db.archivedFiles, fileId)
+	db.archivedFileIds = db.archivedFileIds[1:]
+
+	err := df.Close()
+	if err != nil {
+		return err
+	}
+
+	return os.Remove(df.path)
+}
+
+func (db *DB) replaceActiveFile() error {
+	if err := db.activeFile.Sync(); err != nil {
+		return err
+	}
+	db.archivedFiles[db.activeFile.fileId] = db.activeFile
+	db.archivedFileIds = append(db.archivedFileIds, db.activeFile.fileId)
+
+	newDataFile, err := CreateDataFile(db.option.Path, db.nextFileId)
+	if err != nil {
+		return err
+	}
+
+	db.nextFileId += 1
+	db.activeFile = newDataFile
+
+	return nil
 }
 
 func (db *DB) Close() error {

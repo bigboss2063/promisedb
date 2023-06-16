@@ -20,7 +20,7 @@ import (
 
 const (
 	DBDirectory        = "/apexdb"
-	MergeDirectory     = "/apexdb/merge"
+	CompactDirectory   = "/apexdb/merge"
 	MaxDataFileSize    = 64 * 1024 * 1024
 	CompactionInternal = 8 * time.Hour
 	DeletionRate       = 0.3
@@ -44,7 +44,7 @@ func DefaultOption() *Option {
 
 func MergeOption() *Option {
 	return &Option{
-		Path:            os.TempDir() + MergeDirectory,
+		Path:            os.TempDir() + CompactDirectory,
 		MaxDataFileSize: MaxDataFileSize,
 	}
 }
