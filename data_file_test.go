@@ -14,7 +14,11 @@
 package ApexDB
 
 import (
+	"fmt"
+	"github.com/bigboss2063/ApexDB/pkg/util"
 	"github.com/stretchr/testify/assert"
+	"io"
+	"log"
 	"os"
 	"testing"
 	"time"
@@ -72,6 +76,49 @@ func TestDataFile_WriteAt_ReadAt(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, et.Key, entry.Key)
 	assert.Equal(t, et.Value, entry.Value)
+}
+
+func TestDataFile_ReadBatch(t *testing.T) {
+	path := DefaultOption().Path
+
+	err := os.MkdirAll(path, os.ModePerm)
+	assert.Nil(t, err)
+
+	dataFile, err := CreateDataFile(path, 0)
+	assert.Nil(t, err)
+	assert.NotNil(t, dataFile)
+
+	off := 0
+	for i := 0; i < 32; i++ {
+		et := NewEntry([]byte(fmt.Sprintf("%09d", i)), util.RandomBytes(1024), NormalEntry)
+		data := et.EncodeLogEntry()
+		n, err := dataFile.WriteAt(data, int64(off))
+		off += len(data)
+		assert.Equal(t, n, len(data))
+		assert.Nil(t, err)
+	}
+
+	var offset int64
+	for {
+		entries, _, nextOff, err := dataFile.ReadBatch(offset)
+		if err != nil {
+			if err == io.EOF {
+				if len(entries) != 0 {
+					for _, et := range entries {
+						log.Printf("%v\n", string(et.Key))
+					}
+				}
+				break
+			}
+			assert.Fail(t, "")
+		}
+		for _, et := range entries {
+			log.Printf("%v\n", string(et.Key))
+		}
+		offset = nextOff
+	}
+
+	os.RemoveAll(path)
 }
 
 func TestDataFile_Sync_Close(t *testing.T) {

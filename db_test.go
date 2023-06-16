@@ -264,7 +264,7 @@ func TestDB_Compaction(t *testing.T) {
 		go func(i int) {
 			et, err := db.Get([]byte(fmt.Sprintf("%09d", i)))
 			if err != nil {
-				assert.Equal(t, err, ErrKeyNotExist)
+				assert.Equal(t, ErrKeyNotExist, err)
 			} else {
 				assert.NotNil(t, et)
 				assert.Equal(t, et.Value, []byte(fmt.Sprintf("%09d", i)))

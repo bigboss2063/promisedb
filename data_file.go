@@ -16,11 +16,15 @@ package ApexDB
 import (
 	"fmt"
 	"github.com/bigboss2063/ApexDB/pkg/binaryx"
+	"github.com/bigboss2063/ApexDB/pkg/common"
+	"io"
 	"os"
 )
 
-const DataFileSuffix = ".apex"
-const CompactEndFlag = "end"
+const (
+	DataFileSuffix = ".apex"
+	CompactEndFlag = "end"
+)
 
 type DataFile struct {
 	path      string
@@ -56,19 +60,6 @@ func CreateDataFile(path string, fileId uint32) (*DataFile, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return df, nil
-}
-
-func CreateCompactEndFlag(path string) (*DataFile, error) {
-	filePath := newCompactEndFlagPath(path)
-
-	fd, err := NewFd(filePath)
-	if err != nil {
-		return nil, err
-	}
-
-	df := &DataFile{rwManager: fd}
 
 	return df, nil
 }
@@ -128,6 +119,42 @@ func (df *DataFile) ReadAt(off int64) (*Entry, error) {
 	}
 
 	return et, nil
+}
+
+func (df *DataFile) ReadBatch(off int64) ([]*Entry, []uint32, int64, error) {
+	buf := make([]byte, 64*common.KB)
+
+	n, err := df.rwManager.ReadAt(buf, off)
+	if err != nil && err != io.EOF {
+		return nil, nil, 0, err
+	}
+
+	offset := 0
+	entries := make([]*Entry, 0)
+	vpos := make([]uint32, 0)
+	for {
+		// if the remaining bytes cannot be parsed out metadata, return
+		if n-offset < EntryMetaSize {
+			return entries, vpos, off + int64(offset), err
+		}
+
+		et := new(Entry)
+		metaDataBuf := buf[offset : offset+EntryMetaSize]
+		et.DecodeLogEntryMeta(metaDataBuf)
+
+		offset += EntryMetaSize
+		if n-offset < int(et.MetaData.Ksz+et.MetaData.Vsz) {
+			return entries, vpos, off + int64(offset-EntryMetaSize), err
+		}
+
+		payloadBuf := buf[offset : offset+int(et.MetaData.Ksz+et.MetaData.Vsz)]
+		err := et.DecodeLogEntry(append(metaDataBuf[4:], payloadBuf...))
+		if err == nil {
+			entries = append(entries, et)
+			vpos = append(vpos, uint32(off+int64(offset-EntryMetaSize)))
+		}
+		offset += int(et.MetaData.Ksz + et.MetaData.Vsz)
+	}
 }
 
 func (df *DataFile) ReadEntryAt(off int64, entrySize int) (*Entry, error) {

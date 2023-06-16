@@ -131,13 +131,54 @@ func (db *DB) loadDataFiles() error {
 func (db *DB) loadIndexFromFiles() error {
 	for _, id := range db.archivedFileIds {
 		df := db.archivedFiles[id]
-		if err := db.loadIndexFromFile(df); err != nil && err != io.EOF {
+		if err := db.loadIndexFromFileBatch(df); err != nil && err != io.EOF {
 			return err
 		}
 	}
 
-	if err := db.loadIndexFromFile(db.activeFile); err != nil && err != io.EOF {
+	if err := db.loadIndexFromFileBatch(db.activeFile); err != nil && err != io.EOF {
 		return err
+	}
+	return nil
+}
+
+func (db *DB) loadIndexFromFileBatch(df *DataFile) error {
+	var offset int64 = 4
+	for {
+		entries, vpos, nextOff, err := df.ReadBatch(offset)
+		if err != nil {
+			if err == io.EOF {
+				for i, et := range entries {
+					if et.MetaData.EntryType == Tombstone {
+						db.keyDir.Del(string(et.Key))
+						continue
+					}
+					dataPos := &DataPos{
+						FileId: df.fileId,
+						Vsz:    et.MetaData.Vsz,
+						Vpos:   vpos[i],
+						Tstamp: et.MetaData.Tstamp,
+					}
+					db.keyDir.Put(string(et.Key), dataPos)
+				}
+				break
+			}
+			return err
+		}
+		for i, et := range entries {
+			if et.MetaData.EntryType == Tombstone {
+				db.keyDir.Del(string(et.Key))
+				continue
+			}
+			dataPos := &DataPos{
+				FileId: df.fileId,
+				Vsz:    et.MetaData.Vsz,
+				Vpos:   vpos[i],
+				Tstamp: et.MetaData.Tstamp,
+			}
+			db.keyDir.Put(string(et.Key), dataPos)
+		}
+		offset = nextOff
 	}
 	return nil
 }
@@ -346,28 +387,29 @@ func (db *DB) Compaction() error {
 		}
 	}
 
-	for _, file := range waitingCompactFiles {
+	for _, df := range waitingCompactFiles {
 		var offset int64 = 4
 		for {
-			et, err := file.ReadAt(offset)
+			entries, vpos, nextOff, err := df.ReadBatch(offset)
 			if err != nil {
 				if err == io.EOF {
+					for i, et := range entries {
+						err := db.resetKeyDir(et, df.fileId, vpos[i])
+						if err != nil {
+							return err
+						}
+					}
 					break
 				}
 				return err
 			}
-
-			dataPos := db.keyDir.Get(string(et.Key))
-			if dataPos != nil && dataPos.FileId == file.fileId && dataPos.Vpos == uint32(offset) {
-
-				dataPos, err = db.appendLogEntry(et)
+			for i, et := range entries {
+				err := db.resetKeyDir(et, df.fileId, vpos[i])
 				if err != nil {
 					return err
 				}
-
-				db.keyDir.Put(string(et.Key), dataPos)
 			}
-			offset += int64(et.Size())
+			offset = nextOff
 		}
 	}
 
@@ -378,6 +420,20 @@ func (db *DB) Compaction() error {
 		}
 	}
 
+	return nil
+}
+
+func (db *DB) resetKeyDir(et *Entry, fileId uint32, offset uint32) error {
+	dataPos := db.keyDir.Get(string(et.Key))
+	if dataPos != nil && dataPos.FileId == fileId && dataPos.Vpos == offset {
+
+		dataPos, err := db.appendLogEntry(et)
+		if err != nil {
+			return err
+		}
+
+		db.keyDir.Put(string(et.Key), dataPos)
+	}
 	return nil
 }
 
