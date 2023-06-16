@@ -87,8 +87,8 @@ func (et *Entry) DecodeLogEntry(data []byte) error {
 		return ErrEntryWrong
 	}
 
-	et.Key = data[:et.MetaData.Ksz]
-	et.Value = data[et.MetaData.Ksz:]
+	et.Key = data[EntryMetaSize-4 : EntryMetaSize+et.MetaData.Ksz-4]
+	et.Value = data[EntryMetaSize+et.MetaData.Ksz-4:]
 	return nil
 }
 
@@ -103,7 +103,7 @@ func (et *Entry) EncodeLogEntry() []byte {
 	buf = append(buf, et.Key...)
 	buf = append(buf, et.Value...)
 
-	copy(buf[:4], binaryx.PutUint32(crc32.ChecksumIEEE(buf[EntryMetaSize:])))
+	copy(buf[:4], binaryx.PutUint32(crc32.ChecksumIEEE(buf[4:])))
 
 	return buf
 }

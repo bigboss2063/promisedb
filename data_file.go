@@ -122,7 +122,7 @@ func (df *DataFile) ReadAt(off int64) (*Entry, error) {
 		return nil, err
 	}
 
-	err = et.DecodeLogEntry(payloadBuf)
+	err = et.DecodeLogEntry(append(metaDataBuf[4:], payloadBuf...))
 	if err != nil {
 		return nil, err
 	}

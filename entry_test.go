@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-func TestDataFile_Entry_Codec(t *testing.T) {
+func TestEntry_Codec(t *testing.T) {
 	key, value := []byte("key-1"), []byte("value-1")
 	entry := &Entry{
 		Key:   key,
@@ -38,7 +38,7 @@ func TestDataFile_Entry_Codec(t *testing.T) {
 
 	et.DecodeLogEntryMeta(data)
 
-	err := et.DecodeLogEntry(data[EntryMetaSize:])
+	err := et.DecodeLogEntry(data[4:])
 
 	assert.Nil(t, err)
 	assert.Equal(t, entry.Key, et.Key)
