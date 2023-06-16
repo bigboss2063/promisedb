@@ -130,6 +130,25 @@ func (df *DataFile) ReadAt(off int64) (*Entry, error) {
 	return et, nil
 }
 
+func (df *DataFile) ReadEntryAt(off int64, entrySize int) (*Entry, error) {
+	buf := make([]byte, entrySize)
+
+	_, err := df.rwManager.ReadAt(buf, off)
+	if err != nil {
+		return nil, err
+	}
+
+	et := new(Entry)
+
+	et.DecodeLogEntryMeta(buf[:EntryMetaSize])
+	err = et.DecodeLogEntry(buf[4:])
+	if err != nil {
+		return nil, err
+	}
+
+	return et, nil
+}
+
 func (df *DataFile) WriteAt(data []byte, off int64) (int, error) {
 	n, err := df.rwManager.WriteAt(data, off)
 	if err != nil {

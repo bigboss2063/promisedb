@@ -191,7 +191,7 @@ func (db *DB) Get(key []byte) (*Entry, error) {
 		return nil, ErrDataFileNotExist
 	}
 
-	et, err := datafile.ReadAt(int64(dataPos.Vpos))
+	et, err := datafile.ReadEntryAt(int64(dataPos.Vpos), EntryMetaSize+len(key)+int(dataPos.Vsz))
 	if err != nil {
 		return nil, err
 	}
