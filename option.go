@@ -41,10 +41,3 @@ func DefaultOption() *Option {
 		DeletionRate:       DeletionRate,
 	}
 }
-
-func MergeOption() *Option {
-	return &Option{
-		Path:            os.TempDir() + CompactDirectory,
-		MaxDataFileSize: MaxDataFileSize,
-	}
-}
