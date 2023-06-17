@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ApexDB
+package promisedb
 
 import (
 	"os"
@@ -20,7 +20,6 @@ import (
 
 const (
 	DBDirectory        = "/apexdb"
-	CompactDirectory   = "/apexdb/merge"
 	MaxDataFileSize    = 64 * 1024 * 1024
 	CompactionInternal = 8 * time.Hour
 	DeletionRate       = 0.3

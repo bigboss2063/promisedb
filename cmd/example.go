@@ -2,13 +2,13 @@ package main
 
 import (
 	"bytes"
-	"github.com/bigboss2063/ApexDB"
+	"github.com/bigboss2063/promisedb"
 	"os"
 )
 
 func main() {
-	option := ApexDB.DefaultOption()
-	db, err := ApexDB.OpenDB(option)
+	option := promisedb.DefaultOption()
+	db, err := promisedb.OpenDB(option)
 	defer db.Close()
 	if err != nil {
 		panic(err.Error())
@@ -34,7 +34,7 @@ func main() {
 	}
 
 	et, err = db.Get([]byte("hello"))
-	if err != ApexDB.ErrKeyNotExist {
+	if err != promisedb.ErrKeyNotExist {
 		panic(err.Error())
 	}
 

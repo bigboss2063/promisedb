@@ -1,4 +1,4 @@
-module github.com/bigboss2063/ApexDB
+module github.com/bigboss2063/promisedb
 
 go 1.20
 

@@ -11,12 +11,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ApexDB
+package promisedb
 
 import (
 	"fmt"
-	"github.com/bigboss2063/ApexDB/pkg/binaryx"
-	"github.com/bigboss2063/ApexDB/pkg/common"
+	"github.com/bigboss2063/promisedb/pkg/binaryx"
+	"github.com/bigboss2063/promisedb/pkg/common"
 	"io"
 	"os"
 )

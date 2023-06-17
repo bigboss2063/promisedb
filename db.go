@@ -11,11 +11,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ApexDB
+package promisedb
 
 import (
 	"errors"
-	"github.com/bigboss2063/ApexDB/pkg/binaryx"
+	"github.com/bigboss2063/promisedb/pkg/binaryx"
 	"github.com/samber/lo"
 	"io"
 	"log"
@@ -252,7 +252,7 @@ func (db *DB) Put(key []byte, value []byte) error {
 
 	db.lock.Lock()
 
-	if dataPos != nil && dataPos.FileId != db.activeFile.fileId {
+	if dataPos != nil {
 		df := db.archivedFiles[dataPos.FileId]
 		garbageSize := EntryMetaSize + len(key) + len(value)
 		err := df.WriteGarbageSize(uint32(garbageSize))
@@ -365,9 +365,9 @@ func (db *DB) Compaction() error {
 		return err
 	}
 
-	deletionSize := float64(binaryx.Uint32(buf))
-	deletionRate := deletionSize / float64(db.activeFile.size)
-	if deletionRate >= db.option.DeletionRate {
+	garbageSize := float64(binaryx.Uint32(buf))
+	garbageRate := garbageSize / float64(db.activeFile.size)
+	if garbageRate >= db.option.DeletionRate {
 		err := db.replaceActiveFile()
 		if err != nil {
 			return err
@@ -381,9 +381,9 @@ func (db *DB) Compaction() error {
 		if err := df.ReadGarbageSize(buf); err != nil {
 			return err
 		}
-		deletionSize = float64(binaryx.Uint32(buf))
-		deletionRate = deletionSize / float64(df.size)
-		if deletionRate >= db.option.DeletionRate {
+		garbageSize = float64(binaryx.Uint32(buf))
+		garbageRate = garbageSize / float64(df.size)
+		if garbageRate >= db.option.DeletionRate {
 			waitingCompactFiles = append(waitingCompactFiles, df)
 		}
 	}

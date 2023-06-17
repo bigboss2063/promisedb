@@ -11,11 +11,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ApexDB
+package promisedb
 
 import (
 	"fmt"
-	"github.com/bigboss2063/ApexDB/pkg/util"
+	"github.com/bigboss2063/promisedb/pkg/util"
 	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"os"
