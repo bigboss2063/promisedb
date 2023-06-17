@@ -16,6 +16,7 @@ package ApexDB
 import (
 	"errors"
 	"github.com/bigboss2063/ApexDB/pkg/binaryx"
+	"github.com/samber/lo"
 	"io"
 	"log"
 	"os"
@@ -467,7 +468,10 @@ func (db *DB) delete(fileId uint32) error {
 	df := db.archivedFiles[fileId]
 
 	delete(db.archivedFiles, fileId)
-	db.archivedFileIds = db.archivedFileIds[1:]
+
+	lo.Reject(db.archivedFileIds, func(id uint32, _ int) bool {
+		return id == fileId
+	})
 
 	err := df.Close()
 	if err != nil {
