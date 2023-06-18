@@ -463,6 +463,10 @@ func (db *DB) compactor() {
 }
 
 func (db *DB) delete(fileId uint32) error {
+	err := db.gm.free(fileId)
+	if err != nil {
+		return err
+	}
 
 	df := db.archivedFiles[fileId]
 
@@ -472,7 +476,7 @@ func (db *DB) delete(fileId uint32) error {
 		return id == fileId
 	})
 
-	err := df.Close()
+	err = df.Close()
 	if err != nil {
 		return err
 	}
