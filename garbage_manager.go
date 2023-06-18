@@ -146,6 +146,7 @@ func (gm *GarbageManager) updateGarbageInfo(ui *updateInfo) error {
 			return err
 		}
 		gmd = allocated
+		gm.metas[ui.fileId] = gmd
 	}
 
 	buf := make([]byte, 4)

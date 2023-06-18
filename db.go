@@ -371,7 +371,6 @@ func (db *DB) Compaction() error {
 	garbageSize := db.gm.getGarbageSize(db.activeFile.fileId)
 	garbageRate := float64(garbageSize) / float64(db.activeFile.size)
 	if garbageRate >= db.option.GarbageRate {
-		waitingCompactFiles = append(waitingCompactFiles, db.activeFile)
 		err := db.replaceActiveFile()
 		if err != nil {
 			return err
@@ -525,6 +524,8 @@ func (db *DB) Close() error {
 			return err
 		}
 	}
+
+	db.gm.close()
 
 	return err
 }
