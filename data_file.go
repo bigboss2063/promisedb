@@ -23,7 +23,6 @@ import (
 
 const (
 	DataFileSuffix = ".apex"
-	CompactEndFlag = "end"
 )
 
 type DataFile struct {
@@ -36,10 +35,6 @@ type DataFile struct {
 
 func newDataFilePath(path string, fileId uint32) string {
 	return path + "/" + fmt.Sprintf("%09d", fileId) + DataFileSuffix
-}
-
-func newCompactEndFlagPath(path string) string {
-	return path + "/" + CompactEndFlag
 }
 
 func CreateDataFile(path string, fileId uint32) (*DataFile, error) {

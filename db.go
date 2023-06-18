@@ -15,7 +15,6 @@ package promisedb
 
 import (
 	"errors"
-	"github.com/bigboss2063/promisedb/pkg/binaryx"
 	"github.com/samber/lo"
 	"io"
 	"log"
@@ -45,6 +44,7 @@ type DB struct {
 	keyDir          Index
 	nextFileId      uint32
 	compacting      bool
+	gm              *GarbageManager
 }
 
 func OpenDB(option *Option) (*DB, error) {
@@ -54,14 +54,20 @@ func OpenDB(option *Option) (*DB, error) {
 		}
 	}
 
+	gm, err := NewGarbageManager(option.Path, option.GarbageManagerBufSize)
+	if err != nil {
+		return nil, err
+	}
+
 	db := &DB{
 		lock:          &sync.RWMutex{},
 		option:        option,
 		archivedFiles: make(map[uint32]*DataFile),
 		keyDir:        NewIndex(),
+		gm:            gm,
 	}
 
-	err := db.loadDataFiles()
+	err = db.loadDataFiles()
 	if err != nil {
 		return nil, err
 	}
@@ -249,17 +255,15 @@ func (db *DB) Put(key []byte, value []byte) error {
 	et := NewEntry(key, value, NormalEntry)
 
 	dataPos := db.keyDir.Get(string(key))
+	if dataPos != nil {
+		garbageSize := EntryMetaSize + len(key) + len(value)
+		db.gm.sendUpdateInfo(&updateInfo{
+			fileId:      dataPos.FileId,
+			garbageSize: uint32(garbageSize),
+		})
+	}
 
 	db.lock.Lock()
-
-	if dataPos != nil {
-		df := db.archivedFiles[dataPos.FileId]
-		garbageSize := EntryMetaSize + len(key) + len(value)
-		err := df.WriteGarbageSize(uint32(garbageSize))
-		if err != nil {
-			return err
-		}
-	}
 
 	dataPos, err := db.appendLogEntry(et)
 	if err != nil {
@@ -317,25 +321,28 @@ func (db *DB) Del(key []byte) error {
 	if dataPos.FileId == db.activeFile.fileId {
 		df = db.activeFile
 		garbageSize = EntryMetaSize + len(key) + int(dataPos.Vsz) + et.Size()
+		db.gm.sendUpdateInfo(&updateInfo{
+			fileId:      dataPos.FileId,
+			garbageSize: uint32(garbageSize),
+		})
 	} else {
 		df = db.archivedFiles[dataPos.FileId]
 		garbageSize = EntryMetaSize + len(key) + int(dataPos.Vsz)
-		err := db.activeFile.WriteGarbageSize(uint32(et.Size()))
-		if err != nil {
-			return err
-		}
+		db.gm.sendUpdateInfo(&updateInfo{
+			fileId:      dataPos.FileId,
+			garbageSize: uint32(garbageSize),
+		})
+		db.gm.sendUpdateInfo(&updateInfo{
+			fileId:      db.activeFile.fileId,
+			garbageSize: uint32(et.Size()),
+		})
 	}
 
 	if df == nil {
 		return ErrDataFileNotExist
 	}
 
-	err := df.WriteGarbageSize(uint32(garbageSize))
-	if err != nil {
-		return err
-	}
-
-	_, err = db.appendLogEntry(et)
+	_, err := db.appendLogEntry(et)
 	if err != nil {
 		return err
 	}
@@ -359,31 +366,23 @@ func (db *DB) Compaction() error {
 		db.compacting = false
 	}()
 
-	buf := make([]byte, 4)
-	err := db.activeFile.ReadGarbageSize(buf)
-	if err != nil {
-		return err
-	}
+	waitingCompactFiles := make([]*DataFile, 0)
 
-	garbageSize := float64(binaryx.Uint32(buf))
-	garbageRate := garbageSize / float64(db.activeFile.size)
-	if garbageRate >= db.option.DeletionRate {
+	garbageSize := db.gm.getGarbageSize(db.activeFile.fileId)
+	garbageRate := float64(garbageSize) / float64(db.activeFile.size)
+	if garbageRate >= db.option.GarbageRate {
+		waitingCompactFiles = append(waitingCompactFiles, db.activeFile)
 		err := db.replaceActiveFile()
 		if err != nil {
 			return err
 		}
 	}
 
-	waitingCompactFiles := make([]*DataFile, 0)
-
 	for _, fileId := range db.archivedFileIds {
 		df := db.archivedFiles[fileId]
-		if err := df.ReadGarbageSize(buf); err != nil {
-			return err
-		}
-		garbageSize = float64(binaryx.Uint32(buf))
-		garbageRate = garbageSize / float64(df.size)
-		if garbageRate >= db.option.DeletionRate {
+		garbageSize = db.gm.getGarbageSize(fileId)
+		garbageRate = float64(garbageSize) / float64(df.size)
+		if garbageRate >= db.option.GarbageRate {
 			waitingCompactFiles = append(waitingCompactFiles, df)
 		}
 	}

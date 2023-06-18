@@ -19,24 +19,27 @@ import (
 )
 
 const (
-	DBDirectory        = "/apexdb"
-	MaxDataFileSize    = 64 * 1024 * 1024
-	CompactionInternal = 8 * time.Hour
-	DeletionRate       = 0.3
+	DBDirectory           = "/apexdb"
+	MaxDataFileSize       = 64 * 1024 * 1024
+	CompactionInternal    = 8 * time.Hour
+	DeletionRate          = 0.3
+	GarbageManagerBufSize = 8 * 1024 * 1024
 )
 
 type Option struct {
-	Path               string
-	MaxDataFileSize    uint32
-	CompactionInternal time.Duration
-	DeletionRate       float64
+	Path                  string
+	MaxDataFileSize       uint32
+	CompactionInternal    time.Duration
+	GarbageRate           float64
+	GarbageManagerBufSize int
 }
 
 func DefaultOption() *Option {
 	return &Option{
-		Path:               os.TempDir() + DBDirectory,
-		MaxDataFileSize:    MaxDataFileSize,
-		CompactionInternal: CompactionInternal,
-		DeletionRate:       DeletionRate,
+		Path:                  os.TempDir() + DBDirectory,
+		MaxDataFileSize:       MaxDataFileSize,
+		CompactionInternal:    CompactionInternal,
+		GarbageRate:           DeletionRate,
+		GarbageManagerBufSize: GarbageManagerBufSize,
 	}
 }
