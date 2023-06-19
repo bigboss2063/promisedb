@@ -292,6 +292,12 @@ func (db *DB) appendLogEntry(et *Entry) (*DataPos, error) {
 		return nil, err
 	}
 
+	if db.option.Sync {
+		if err := db.activeFile.Sync(); err != nil {
+			return nil, err
+		}
+	}
+
 	dataPos := &DataPos{
 		FileId: db.activeFile.fileId,
 		Vsz:    et.MetaData.Vsz,

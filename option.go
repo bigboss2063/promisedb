@@ -22,11 +22,12 @@ const (
 	DBDirectory           = "/apexdb"
 	MaxDataFileSize       = 64 * 1024 * 1024
 	CompactionInternal    = 8 * time.Hour
-	DeletionRate          = 0.3
+	GarbageRation         = 0.3
 	GarbageManagerBufSize = 8 * 1024 * 1024
 )
 
 type Option struct {
+	Sync                  bool
 	Path                  string
 	MaxDataFileSize       uint32
 	CompactionInternal    time.Duration
@@ -36,10 +37,11 @@ type Option struct {
 
 func DefaultOption() *Option {
 	return &Option{
+		Sync:                  false,
 		Path:                  os.TempDir() + DBDirectory,
 		MaxDataFileSize:       MaxDataFileSize,
 		CompactionInternal:    CompactionInternal,
-		GarbageRate:           DeletionRate,
+		GarbageRate:           GarbageRation,
 		GarbageManagerBufSize: GarbageManagerBufSize,
 	}
 }
