@@ -10,9 +10,47 @@ PromiseDB is a high-performance key-value storage engine built upon the BitCask 
 
 **warn**: Due to the bitcask model, all keys must fit in memory.
 
+## Simple example
+
+```go
+	option := promisedb.DefaultOption()
+	db, err := promisedb.OpenDB(option)
+	defer db.Close()
+	if err != nil {
+		panic(err.Error())
+	}
+
+	err = db.Put([]byte("hello"), []byte("world"))
+	if err != nil {
+		panic(err.Error())
+	}
+
+	et, err := db.Get([]byte("hello"))
+	if err != nil {
+		panic(err.Error())
+	}
+
+	if bytes.Compare(et.Value, []byte("world")) != 0 {
+		panic(et.Value)
+	}
+
+	err = db.Del([]byte("hello"))
+	if err != nil {
+		panic(err.Error())
+	}
+
+	et, err = db.Get([]byte("hello"))
+	if err != promisedb.ErrKeyNotExist {
+		panic(err.Error())
+	}
+
+	os.RemoveAll(option.Path)
+```
+
 ## Todo
 
-- [ ] Support transaction to ensure ACID properties.
+- [ ] Support MVCC.
+- [ ] Support transaction(Snapshot Isolation) to ensure ACID properties.
 - [ ] Support Redis protocol and commands.
 - [ ] Support some more complex data structures, such as List, Hash, etc.
 - [ ] Support distributed cluster based on Raft algorithm.
