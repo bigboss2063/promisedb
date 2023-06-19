@@ -50,7 +50,7 @@ PromiseDB is a high-performance key-value storage engine built upon the BitCask 
 ## Todo
 
 - [ ] Support MVCC.
-- [ ] Support transaction(Snapshot Isolation) to ensure ACID properties.
+- [ ] Support transaction(Serializable Snapshot Isolation) to ensure ACID properties.
 - [ ] Support Redis protocol and commands.
 - [ ] Support some more complex data structures, such as List, Hash, etc.
 - [ ] Support distributed cluster based on Raft algorithm.

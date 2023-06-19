@@ -119,7 +119,7 @@ func (gm *GarbageManager) garbageRecorder() {
 		case <-gm.closeCh:
 			_ = gm.sync()
 			_ = gm.rwManager.Close()
-			close(gm.updateInfoCh)
+			return
 		}
 	}
 }
