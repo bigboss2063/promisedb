@@ -257,10 +257,7 @@ func (db *DB) Put(key []byte, value []byte) error {
 	dataPos := db.keyDir.Get(string(key))
 	if dataPos != nil {
 		garbageSize := EntryMetaSize + len(key) + len(value)
-		db.gm.sendUpdateInfo(&updateInfo{
-			fileId:      dataPos.FileId,
-			garbageSize: uint32(garbageSize),
-		})
+		db.gm.sendUpdateInfo(dataPos.FileId, uint32(garbageSize))
 	}
 
 	db.lock.Lock()
@@ -327,21 +324,12 @@ func (db *DB) Del(key []byte) error {
 	if dataPos.FileId == db.activeFile.fileId {
 		df = db.activeFile
 		garbageSize = EntryMetaSize + len(key) + int(dataPos.Vsz) + et.Size()
-		db.gm.sendUpdateInfo(&updateInfo{
-			fileId:      dataPos.FileId,
-			garbageSize: uint32(garbageSize),
-		})
+		db.gm.sendUpdateInfo(dataPos.FileId, uint32(garbageSize))
 	} else {
 		df = db.archivedFiles[dataPos.FileId]
 		garbageSize = EntryMetaSize + len(key) + int(dataPos.Vsz)
-		db.gm.sendUpdateInfo(&updateInfo{
-			fileId:      dataPos.FileId,
-			garbageSize: uint32(garbageSize),
-		})
-		db.gm.sendUpdateInfo(&updateInfo{
-			fileId:      db.activeFile.fileId,
-			garbageSize: uint32(et.Size()),
-		})
+		db.gm.sendUpdateInfo(dataPos.FileId, uint32(garbageSize))
+		db.gm.sendUpdateInfo(db.activeFile.fileId, uint32(et.Size()))
 	}
 
 	if df == nil {

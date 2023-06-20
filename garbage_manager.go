@@ -134,8 +134,11 @@ func (gm *GarbageManager) getGarbageSize(fileId uint32) uint32 {
 	return gmd.garbageSize
 }
 
-func (gm *GarbageManager) sendUpdateInfo(ui *updateInfo) {
-	gm.updateInfoCh <- ui
+func (gm *GarbageManager) sendUpdateInfo(fileId uint32, garbageSize uint32) {
+	gm.updateInfoCh <- &updateInfo{
+		fileId:      fileId,
+		garbageSize: garbageSize,
+	}
 }
 
 func (gm *GarbageManager) updateGarbageInfo(ui *updateInfo) error {
