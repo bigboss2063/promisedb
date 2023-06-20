@@ -13,6 +13,7 @@ PromiseDB is a high-performance key-value storage engine built upon the BitCask 
 ## Simple example
 
 ```go
+func main() {
 	option := promisedb.DefaultOption()
 	db, err := promisedb.OpenDB(option)
 	defer db.Close()
@@ -45,12 +46,14 @@ PromiseDB is a high-performance key-value storage engine built upon the BitCask 
 	}
 
 	os.RemoveAll(option.Path)
+}
 ```
 
 ## Todo
 
-- [ ] Support MVCC.
-- [ ] Support transaction(Serializable Snapshot Isolation) to ensure ACID properties.
+- [ ] Support transaction(Serializable Isolation) to ensure ACID properties.(Since bitcask needs to put all indexes in memory, the cost of implementing MVCC is too high, so the SSI isolation level is not considered).
+- [ ] Support TTL.
+- [ ] Support Watch.
 - [ ] Support Redis protocol and commands.
 - [ ] Support some more complex data structures, such as List, Hash, etc.
 - [ ] Support distributed cluster based on Raft algorithm.
