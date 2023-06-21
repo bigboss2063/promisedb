@@ -14,7 +14,6 @@
 package ttl
 
 import (
-	"log"
 	"sync/atomic"
 	"time"
 )
@@ -91,7 +90,6 @@ func (ttl *TTL) exec() {
 
 		select {
 		case <-ttl.eventCh:
-			log.Printf("event\n")
 			return
 		case <-timer.C:
 		}
@@ -106,7 +104,6 @@ func (ttl *TTL) exec() {
 
 func (ttl *TTL) notify() {
 	if ttl.started.Load() {
-		log.Printf("notify\n")
 		ttl.eventCh <- struct{}{}
 	}
 }
