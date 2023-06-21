@@ -15,7 +15,7 @@ func main() {
 		panic(err.Error())
 	}
 
-	err = db.Put([]byte("hello"), []byte("world"), 0)
+	err = db.Put([]byte("hello"), []byte("world"))
 	if err != nil {
 		panic(err.Error())
 	}
@@ -39,7 +39,7 @@ func main() {
 		panic(err.Error())
 	}
 
-	err = db.Put([]byte("bigboss"), []byte("2063"), 10*time.Second)
+	err = db.PutWithExpiration([]byte("bigboss"), []byte("2063"), 10*time.Second)
 	if err != nil {
 		panic(err.Error())
 	}

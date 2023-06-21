@@ -37,6 +37,7 @@ var (
 )
 
 type DB struct {
+	closed          bool
 	lock            *sync.RWMutex
 	option          *Option
 	activeFile      *DataFile
@@ -62,6 +63,7 @@ func OpenDB(option *Option) (*DB, error) {
 	}
 
 	db := &DB{
+		closed:        false,
 		lock:          &sync.RWMutex{},
 		option:        option,
 		archivedFiles: make(map[uint32]*DataFile),
@@ -250,7 +252,15 @@ func (db *DB) Get(key []byte) (*Entry, error) {
 	return et, nil
 }
 
-func (db *DB) Put(key []byte, value []byte, duration time.Duration) error {
+func (db *DB) PutWithExpiration(key []byte, value []byte, duration time.Duration) error {
+	return db.put(key, value, duration)
+}
+
+func (db *DB) Put(key []byte, value []byte) error {
+	return db.put(key, value, 0)
+}
+
+func (db *DB) put(key []byte, value []byte, duration time.Duration) error {
 	if len(key) == 0 {
 		return ErrKeyIsEmpty
 	}
@@ -507,6 +517,8 @@ func (db *DB) replaceActiveFile() error {
 func (db *DB) Close() error {
 	db.lock.Lock()
 	defer db.lock.Unlock()
+
+	db.closed = true
 
 	err := db.activeFile.Sync()
 	if err != nil {
