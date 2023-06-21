@@ -19,12 +19,12 @@ import (
 )
 
 type TimeHeap struct {
-	heap timeHeap
+	h h
 }
 
 func NewJobHeap() *TimeHeap {
 	return &TimeHeap{
-		heap: timeHeap{
+		h: h{
 			heap:  make([]*Job, 0),
 			index: make(map[string]int),
 		},
@@ -32,44 +32,47 @@ func NewJobHeap() *TimeHeap {
 }
 
 func (jh *TimeHeap) Push(job *Job) {
-	heap.Push(&jh.heap, job)
+	if _, ok := jh.h.index[job.Key]; ok {
+		jh.h.update(job)
+	} else {
+		heap.Push(&jh.h, job)
+	}
 }
 
 func (jh *TimeHeap) Pop() *Job {
-	if jh.heap.isEmpty() {
+	if jh.h.isEmpty() {
 		return nil
 	}
-	return heap.Pop(&jh.heap).(*Job)
+	return heap.Pop(&jh.h).(*Job)
 }
 
 func (jh *TimeHeap) Get(key string) *Job {
-	if i, ok := jh.heap.index[key]; ok {
-		return jh.heap.heap[i]
+	if i, ok := jh.h.index[key]; ok {
+		return jh.h.heap[i]
 	}
 	return nil
 }
 
 func (jh *TimeHeap) Remove(key string) {
-	if i, ok := jh.heap.index[key]; ok {
-		delete(jh.heap.index, key)
-		heap.Remove(&jh.heap, i)
+	if i, ok := jh.h.index[key]; ok {
+		delete(jh.h.index, key)
+		heap.Remove(&jh.h, i)
 	}
 }
 
 func (jh *TimeHeap) IsExpired(key string) bool {
-	return jh.Get(key).Expiration.Before(time.Now())
+	if _, ok := jh.h.index[key]; ok {
+		return jh.Get(key).Expiration.Before(time.Now())
+	}
+	return true
 }
 
 func (jh *TimeHeap) Peek() *Job {
-	return jh.heap.peek().(*Job)
-}
-
-func (jh *TimeHeap) Update(key string, newExpiration time.Time) {
-	jh.heap.update(key, newExpiration)
+	return jh.h.peek().(*Job)
 }
 
 func (jh *TimeHeap) IsEmpty() bool {
-	return jh.heap.isEmpty()
+	return jh.h.isEmpty()
 }
 
 type Job struct {
@@ -84,20 +87,20 @@ func NewJob(key string, expiration time.Time) *Job {
 	}
 }
 
-type timeHeap struct {
+type h struct {
 	heap  []*Job
 	index map[string]int
 }
 
-// Push adds a job to the heap.
-func (h *timeHeap) Push(j interface{}) {
+// Push adds a job to the h.
+func (h *h) Push(j interface{}) {
 	job := j.(*Job)
 	h.heap = append(h.heap, job)
 	h.index[job.Key] = len(h.heap) - 1
 }
 
-// Pop removes and returns the job with the earliest expiration time from the heap.
-func (h *timeHeap) Pop() interface{} {
+// Pop removes and returns the job with the earliest expiration time from the h.
+func (h *h) Pop() interface{} {
 	if len(h.heap) == 0 {
 		return nil
 	}
@@ -108,39 +111,39 @@ func (h *timeHeap) Pop() interface{} {
 }
 
 // Peek returns the job with the earliest expiration time without removing it from the heap.
-func (h *timeHeap) peek() interface{} {
+func (h *h) peek() interface{} {
 	if len(h.heap) > 0 {
 		return h.heap[0]
 	}
 	return nil
 }
 
-// Len returns the number of jobs in the heap.
-func (h *timeHeap) Len() int {
+// Len returns the number of jobs in the h.
+func (h *h) Len() int {
 	return len(h.heap)
 }
 
 // Less reports whether the job with index i should sort before the job with index j.
-func (h *timeHeap) Less(i, j int) bool {
+func (h *h) Less(i, j int) bool {
 	return h.heap[i].Expiration.Before(h.heap[j].Expiration)
 }
 
 // Swap swaps the jobs with indexes i and j.
-func (h *timeHeap) Swap(i, j int) {
+func (h *h) Swap(i, j int) {
 	h.heap[i], h.heap[j] = h.heap[j], h.heap[i]
 	h.index[h.heap[i].Key], h.index[h.heap[j].Key] = i, j
 }
 
 // isEmpty checks if the heap is empty.
-func (h *timeHeap) isEmpty() bool {
+func (h *h) isEmpty() bool {
 	return len(h.heap) == 0
 }
 
 // update modifies the expiration time of a job in the heap.
-func (h *timeHeap) update(key string, newExpiration time.Time) {
-	if index, ok := h.index[key]; ok {
-		job := h.heap[index]
-		job.Expiration = newExpiration
+func (h *h) update(job *Job) {
+	if index, ok := h.index[job.Key]; ok {
+		j := h.heap[index]
+		j.Expiration = job.Expiration
 		heap.Fix(h, index)
 	}
 }

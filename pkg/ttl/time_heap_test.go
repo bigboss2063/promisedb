@@ -32,18 +32,18 @@ func TestJobHeap(t *testing.T) {
 	jh.Push(job3)
 
 	assert.Equal(t, "key1", jh.Peek().Key)
-	assert.Equal(t, 0, jh.heap.index["key1"])
+	assert.Equal(t, 0, jh.h.index["key1"])
 
 	job4 := NewJob("key4", time.Now().Add(time.Second*5))
 	jh.Push(job4)
 
 	assert.Equal(t, "key4", jh.Peek().Key)
-	assert.Equal(t, 0, jh.heap.index["key4"])
+	assert.Equal(t, 0, jh.h.index["key4"])
 
-	jh.Update("key1", time.Now().Add(50*time.Millisecond))
+	jh.Push(NewJob("key1", time.Now().Add(50*time.Millisecond)))
 
 	assert.Equal(t, "key1", jh.Peek().Key)
-	assert.Equal(t, 0, jh.heap.index["key1"])
+	assert.Equal(t, 0, jh.h.index["key1"])
 
 	jh.Remove("key2")
 	assert.Nil(t, jh.Get("key2"))
