@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"github.com/bigboss2063/promisedb"
 	"os"
+	"time"
 )
 
 func main() {
@@ -35,6 +36,11 @@ func main() {
 
 	et, err = db.Get([]byte("hello"))
 	if err != promisedb.ErrKeyNotExist {
+		panic(err.Error())
+	}
+
+	err = db.Put([]byte("bigboss"), []byte("2063"), 10*time.Second)
+	if err != nil {
 		panic(err.Error())
 	}
 

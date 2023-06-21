@@ -21,7 +21,7 @@ func main() {
 		panic(err.Error())
 	}
 
-	err = db.Put([]byte("hello"), []byte("world"))
+	err = db.Put([]byte("hello"), []byte("world"), 0)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -45,6 +45,11 @@ func main() {
 		panic(err.Error())
 	}
 
+	err = db.Put([]byte("bigboss"), []byte("2063"), 10*time.Second)
+	if err != nil {
+		panic(err.Error())
+	}
+
 	os.RemoveAll(option.Path)
 }
 ```
@@ -52,7 +57,7 @@ func main() {
 ## Todo
 
 - [ ] Support transaction(Serializable Isolation) to ensure ACID properties.(Since bitcask needs to put all indexes in memory, the cost of implementing MVCC is too high, so the SSI isolation level is not considered).
-- [ ] Support TTL(Implement expired deletion based on time heap).
+- [x] Support TTL(Implement expired deletion based on time heap).
 - [ ] Support Watch.
 - [ ] Support Redis protocol and commands.
 - [ ] Support some more complex data structures, such as List, Hash, etc.
