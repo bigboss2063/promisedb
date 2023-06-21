@@ -407,7 +407,7 @@ func (db *DB) Compaction() error {
 	}
 
 	for _, file := range waitingCompactFiles {
-		err := db.delete(file.fileId)
+		err := db.deleteDataFile(file.fileId)
 		if err != nil {
 			return err
 		}
@@ -455,7 +455,7 @@ func (db *DB) compactor() {
 	}
 }
 
-func (db *DB) delete(fileId uint32) error {
+func (db *DB) deleteDataFile(fileId uint32) error {
 	err := db.gm.free(fileId)
 	if err != nil {
 		return err

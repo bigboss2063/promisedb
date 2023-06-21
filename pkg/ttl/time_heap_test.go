@@ -21,30 +21,37 @@ import (
 
 func TestJobHeap(t *testing.T) {
 
-	jh := NewJobHeap()
+	jh := &timeHeap{
+		h: h{
+			heap:  make([]*Job, 0),
+			index: make(map[string]int),
+		},
+	}
 
-	job1 := NewJob("key1", time.Now().Add(time.Second*10))
-	job2 := NewJob("key2", time.Now().Add(time.Second*20))
-	job3 := NewJob("key3", time.Now().Add(time.Second*30))
+	now := time.Now()
 
-	jh.Push(job1)
-	jh.Push(job2)
-	jh.Push(job3)
+	job1 := NewJob("key1", time.Unix(0, now.Add(time.Second*1).UnixNano()))
+	job2 := NewJob("key2", time.Unix(0, now.Add(time.Second*2).UnixNano()))
+	job3 := NewJob("key3", time.Unix(0, now.Add(time.Second*3).UnixNano()))
 
-	assert.Equal(t, "key1", jh.Peek().Key)
+	jh.push(job1)
+	jh.push(job2)
+	jh.push(job3)
+
+	assert.Equal(t, "key1", jh.peek().Key)
 	assert.Equal(t, 0, jh.h.index["key1"])
 
-	job4 := NewJob("key4", time.Now().Add(time.Second*5))
-	jh.Push(job4)
+	job4 := NewJob("key4", time.Now().Add(time.Millisecond*500))
+	jh.push(job4)
 
-	assert.Equal(t, "key4", jh.Peek().Key)
+	assert.Equal(t, "key4", jh.peek().Key)
 	assert.Equal(t, 0, jh.h.index["key4"])
 
-	jh.Push(NewJob("key1", time.Now().Add(50*time.Millisecond)))
+	jh.push(NewJob("key1", time.Now().Add(50*time.Millisecond)))
 
-	assert.Equal(t, "key1", jh.Peek().Key)
+	assert.Equal(t, "key1", jh.peek().Key)
 	assert.Equal(t, 0, jh.h.index["key1"])
 
-	jh.Remove("key2")
-	assert.Nil(t, jh.Get("key2"))
+	jh.remove("key2")
+	assert.Nil(t, jh.get("key2"))
 }

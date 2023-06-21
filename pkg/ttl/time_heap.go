@@ -18,20 +18,11 @@ import (
 	"time"
 )
 
-type TimeHeap struct {
+type timeHeap struct {
 	h h
 }
 
-func NewJobHeap() *TimeHeap {
-	return &TimeHeap{
-		h: h{
-			heap:  make([]*Job, 0),
-			index: make(map[string]int),
-		},
-	}
-}
-
-func (jh *TimeHeap) Push(job *Job) {
+func (jh *timeHeap) push(job *Job) {
 	if _, ok := jh.h.index[job.Key]; ok {
 		jh.h.update(job)
 	} else {
@@ -39,39 +30,42 @@ func (jh *TimeHeap) Push(job *Job) {
 	}
 }
 
-func (jh *TimeHeap) Pop() *Job {
+func (jh *timeHeap) pop() *Job {
 	if jh.h.isEmpty() {
 		return nil
 	}
 	return heap.Pop(&jh.h).(*Job)
 }
 
-func (jh *TimeHeap) Get(key string) *Job {
+func (jh *timeHeap) get(key string) *Job {
 	if i, ok := jh.h.index[key]; ok {
 		return jh.h.heap[i]
 	}
 	return nil
 }
 
-func (jh *TimeHeap) Remove(key string) {
+func (jh *timeHeap) remove(key string) {
 	if i, ok := jh.h.index[key]; ok {
 		delete(jh.h.index, key)
 		heap.Remove(&jh.h, i)
 	}
 }
 
-func (jh *TimeHeap) IsExpired(key string) bool {
+func (jh *timeHeap) isExpired(key string) bool {
 	if _, ok := jh.h.index[key]; ok {
-		return jh.Get(key).Expiration.Before(time.Now())
+		return jh.get(key).Expiration.Before(time.Now())
 	}
 	return true
 }
 
-func (jh *TimeHeap) Peek() *Job {
+func (jh *timeHeap) peek() *Job {
+	if jh.isEmpty() {
+		return nil
+	}
 	return jh.h.peek().(*Job)
 }
 
-func (jh *TimeHeap) IsEmpty() bool {
+func (jh *timeHeap) isEmpty() bool {
 	return jh.h.isEmpty()
 }
 
@@ -101,21 +95,23 @@ func (h *h) Push(j interface{}) {
 
 // Pop removes and returns the job with the earliest expiration time from the h.
 func (h *h) Pop() interface{} {
-	if len(h.heap) == 0 {
+	if h.isEmpty() {
 		return nil
 	}
-	earliestJob := h.heap[0]
-	h.heap = h.heap[1:]
-	delete(h.index, earliestJob.Key)
-	return earliestJob
+	old := h.heap
+	n := len(old)
+	x := old[n-1]
+	h.heap = old[0 : n-1]
+	delete(h.index, x.Key)
+	return x
 }
 
-// Peek returns the job with the earliest expiration time without removing it from the heap.
+// peek returns the job with the earliest expiration time without removing it from the heap.
 func (h *h) peek() interface{} {
-	if len(h.heap) > 0 {
-		return h.heap[0]
+	if h.isEmpty() {
+		return nil
 	}
-	return nil
+	return h.heap[0]
 }
 
 // Len returns the number of jobs in the h.
