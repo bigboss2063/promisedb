@@ -14,7 +14,7 @@ func main() {
 		panic(err.Error())
 	}
 
-	err = db.Put([]byte("hello"), []byte("world"))
+	err = db.Put([]byte("hello"), []byte("world"), 0)
 	if err != nil {
 		panic(err.Error())
 	}

@@ -52,7 +52,7 @@ func main() {
 ## Todo
 
 - [ ] Support transaction(Serializable Isolation) to ensure ACID properties.(Since bitcask needs to put all indexes in memory, the cost of implementing MVCC is too high, so the SSI isolation level is not considered).
-- [ ] Support TTL.
+- [ ] Support TTL(Implement expired deletion based on time heap).
 - [ ] Support Watch.
 - [ ] Support Redis protocol and commands.
 - [ ] Support some more complex data structures, such as List, Hash, etc.

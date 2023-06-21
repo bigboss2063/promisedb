@@ -15,6 +15,7 @@ package promisedb
 
 import (
 	"errors"
+	"github.com/bigboss2063/promisedb/pkg/ttl"
 	"github.com/samber/lo"
 	"io"
 	"log"
@@ -45,6 +46,7 @@ type DB struct {
 	nextFileId      uint32
 	compacting      bool
 	gm              *GarbageManager
+	ttl             *ttl.TTL
 }
 
 func OpenDB(option *Option) (*DB, error) {
@@ -67,6 +69,10 @@ func OpenDB(option *Option) (*DB, error) {
 		gm:            gm,
 	}
 
+	db.ttl = ttl.NewTTL(func(key string) error {
+		return db.Del([]byte(key))
+	})
+
 	err = db.loadDataFiles()
 	if err != nil {
 		return nil, err
@@ -85,6 +91,8 @@ func OpenDB(option *Option) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	go db.ttl.Start()
 
 	return db, nil
 }
@@ -156,38 +164,34 @@ func (db *DB) loadIndexFromFileBatch(df *DataFile) error {
 		if err != nil {
 			if err == io.EOF {
 				for i, et := range entries {
-					if et.MetaData.EntryType == Tombstone {
-						db.keyDir.Del(string(et.Key))
-						continue
-					}
-					dataPos := &DataPos{
-						FileId: df.fileId,
-						Vsz:    et.MetaData.Vsz,
-						Vpos:   vpos[i],
-						Tstamp: et.MetaData.Tstamp,
-					}
-					db.keyDir.Put(string(et.Key), dataPos)
+					db.setKeyDir(et, df.fileId, vpos[i])
 				}
 				break
 			}
 			return err
 		}
 		for i, et := range entries {
-			if et.MetaData.EntryType == Tombstone {
-				db.keyDir.Del(string(et.Key))
-				continue
-			}
-			dataPos := &DataPos{
-				FileId: df.fileId,
-				Vsz:    et.MetaData.Vsz,
-				Vpos:   vpos[i],
-				Tstamp: et.MetaData.Tstamp,
-			}
-			db.keyDir.Put(string(et.Key), dataPos)
+			db.setKeyDir(et, df.fileId, vpos[i])
 		}
 		offset = nextOff
 	}
 	return nil
+}
+
+func (db *DB) setKeyDir(et *Entry, fileId uint32, offset uint32) {
+	if et.MetaData.EntryType == Tombstone {
+		db.keyDir.Del(string(et.Key))
+		return
+	}
+	if et.MetaData.Expiration != 0 {
+		db.ttl.Add(ttl.NewJob(string(et.Key), time.Unix(0, int64(et.MetaData.Expiration))))
+	}
+	dataPos := &DataPos{
+		FileId: fileId,
+		Vsz:    et.MetaData.Vsz,
+		Vpos:   offset,
+	}
+	db.keyDir.Put(string(et.Key), dataPos)
 }
 
 func (db *DB) loadIndexFromFile(df *DataFile) error {
@@ -207,7 +211,6 @@ func (db *DB) loadIndexFromFile(df *DataFile) error {
 			FileId: df.fileId,
 			Vsz:    uint32(len(et.Value)),
 			Vpos:   uint32(offset),
-			Tstamp: et.MetaData.Tstamp,
 		}
 		db.keyDir.Put(string(et.Key), dataPos)
 		offset += et.Size()
@@ -247,20 +250,25 @@ func (db *DB) Get(key []byte) (*Entry, error) {
 	return et, nil
 }
 
-func (db *DB) Put(key []byte, value []byte) error {
+func (db *DB) Put(key []byte, value []byte, duration time.Duration) error {
 	if len(key) == 0 {
 		return ErrKeyIsEmpty
 	}
 
+	db.lock.Lock()
+
 	et := NewEntry(key, value, NormalEntry)
+	if duration != 0 {
+		expiration := time.Now().Add(duration).UnixNano()
+		et.MetaData.Expiration = uint64(expiration)
+		db.ttl.Add(ttl.NewJob(string(key), time.Unix(0, expiration)))
+	}
 
 	dataPos := db.keyDir.Get(string(key))
 	if dataPos != nil {
 		garbageSize := EntryMetaSize + len(key) + len(value)
 		db.gm.sendUpdateInfo(dataPos.FileId, uint32(garbageSize))
 	}
-
-	db.lock.Lock()
 
 	dataPos, err := db.appendLogEntry(et)
 	if err != nil {
@@ -299,7 +307,6 @@ func (db *DB) appendLogEntry(et *Entry) (*DataPos, error) {
 		FileId: db.activeFile.fileId,
 		Vsz:    et.MetaData.Vsz,
 		Vpos:   db.activeFile.offset - uint32(len(data)),
-		Tstamp: et.MetaData.Tstamp,
 	}
 
 	return dataPos, nil
@@ -340,6 +347,8 @@ func (db *DB) Del(key []byte) error {
 	if err != nil {
 		return err
 	}
+
+	db.ttl.Delete(string(key))
 
 	db.lock.Unlock()
 
@@ -520,6 +529,8 @@ func (db *DB) Close() error {
 	}
 
 	db.gm.close()
+
+	db.ttl.Stop()
 
 	return err
 }

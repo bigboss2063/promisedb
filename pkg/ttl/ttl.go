@@ -99,7 +99,13 @@ func (ttl *TTL) exec() {
 	if job == nil {
 		return
 	}
-	go ttl.deleter(job.Key)
+
+	go func() {
+		err := ttl.deleter(job.Key)
+		if err != nil {
+
+		}
+	}()
 }
 
 func (ttl *TTL) notify() {

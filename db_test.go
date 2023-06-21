@@ -42,20 +42,20 @@ func TestDB_Put(t *testing.T) {
 	assert.NotNil(t, db)
 
 	// put a normal key-value pair
-	err = db.Put([]byte("key-1"), []byte("value-1"))
+	err = db.Put([]byte("key-1"), []byte("value-1"), 0)
 	assert.Nil(t, err)
 
 	// put a key-value pair with a nil key but a value
-	err = db.Put(nil, []byte("value-1"))
+	err = db.Put(nil, []byte("value-1"), 0)
 	assert.NotNil(t, err)
 
 	// put a key-value pair with a nil value but a key
-	err = db.Put([]byte("key-2"), nil)
+	err = db.Put([]byte("key-2"), nil, 0)
 	assert.Nil(t, err)
 
 	// put a large number of key-value pairs so that the active file is replaced
 	for i := 0; i < 100000; i++ {
-		err := db.Put([]byte(fmt.Sprintf("%09d", i)), util.RandomBytes(1024))
+		err := db.Put([]byte(fmt.Sprintf("%09d", i)), util.RandomBytes(1024), 0)
 		assert.Nil(t, err)
 	}
 
@@ -66,7 +66,7 @@ func TestDB_Put(t *testing.T) {
 
 	// After restarting, read key-value pairs from multiple data files
 	for i := 0; i < 100000; i++ {
-		err := db.Put([]byte(fmt.Sprintf("%09d", i)), util.RandomBytes(1024))
+		err := db.Put([]byte(fmt.Sprintf("%09d", i)), util.RandomBytes(1024), 0)
 		assert.Nil(t, err)
 	}
 
@@ -85,15 +85,15 @@ func TestDB_Get(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
-	err = db.Put([]byte("key-1"), []byte("value-1"))
+	err = db.Put([]byte("key-1"), []byte("value-1"), 0)
 	assert.Nil(t, err)
-	err = db.Put([]byte("key-2"), nil)
+	err = db.Put([]byte("key-2"), nil, 0)
 	assert.Nil(t, err)
 
 	// get a key-value pair normally
 	entry, err := db.Get([]byte("key-1"))
 	assert.Nil(t, err)
-	assert.Equal(t, entry.Value, []byte("value-1"))
+	assert.Equal(t, entry.Value, []byte("value-1"), 0)
 
 	// get a key-value pair with nil key
 	entry, err = db.Get(nil)
@@ -111,7 +111,7 @@ func TestDB_Get(t *testing.T) {
 	assert.Equal(t, err, ErrKeyNotExist)
 
 	for i := 0; i < 200000; i++ {
-		err := db.Put([]byte(fmt.Sprintf("%09d", i)), []byte(fmt.Sprintf("%09d", i)))
+		err := db.Put([]byte(fmt.Sprintf("%09d", i)), []byte(fmt.Sprintf("%09d", i)), 0)
 		assert.Nil(t, err)
 	}
 
@@ -146,7 +146,7 @@ func TestDB_Del(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
-	err = db.Put([]byte("key-1"), []byte("value-1"))
+	err = db.Put([]byte("key-1"), []byte("value-1"), 0)
 	assert.Nil(t, err)
 
 	// Delete a key-value pair normally
@@ -176,7 +176,7 @@ func TestDB_Replace_Active_File(t *testing.T) {
 	assert.NotNil(t, db)
 
 	for i := 0; i < 100000; i++ {
-		err := db.Put([]byte(fmt.Sprintf("%09d", i)), util.RandomBytes(1024))
+		err := db.Put([]byte(fmt.Sprintf("%09d", i)), util.RandomBytes(1024), 0)
 		assert.Nil(t, err)
 	}
 
@@ -199,7 +199,7 @@ func TestDB_Concurrency(t *testing.T) {
 	wg.Add(200000)
 	for i := 0; i < 200000; i++ {
 		go func(i int) {
-			err := db.Put([]byte(fmt.Sprintf("%09d", i)), []byte(fmt.Sprintf("%09d", i)))
+			err := db.Put([]byte(fmt.Sprintf("%09d", i)), []byte(fmt.Sprintf("%09d", i)), 0)
 			assert.Nil(t, err)
 			wg.Done()
 		}(i)
@@ -234,7 +234,7 @@ func TestDB_Compaction(t *testing.T) {
 
 	// put a large amount of data
 	for i := 0; i < 1000000; i++ {
-		err := db.Put([]byte(fmt.Sprintf("%09d", i)), []byte(fmt.Sprintf("%09d", i)))
+		err := db.Put([]byte(fmt.Sprintf("%09d", i)), []byte(fmt.Sprintf("%09d", i)), 0)
 		assert.Nil(t, err)
 	}
 
@@ -274,6 +274,72 @@ func TestDB_Compaction(t *testing.T) {
 	}
 
 	wg.Wait()
+
+	err = db.Close()
+	assert.Nil(t, err)
+
+	err = os.RemoveAll(db.option.Path)
+	assert.Nil(t, err)
+}
+
+func TestDB_TTL(t *testing.T) {
+	db, err := OpenDB(DefaultOption())
+	assert.Nil(t, err)
+	assert.NotNil(t, db)
+
+	err = db.Put([]byte(fmt.Sprintf("%09d", 0)), []byte(fmt.Sprintf("%09d", 0)), 3*time.Second)
+	assert.Nil(t, err)
+
+	err = db.Put([]byte(fmt.Sprintf("%09d", 1)), []byte(fmt.Sprintf("%09d", 1)), 1*time.Second)
+	assert.Nil(t, err)
+
+	time.Sleep(1050 * time.Millisecond)
+
+	et0, err := db.Get([]byte(fmt.Sprintf("%09d", 0)))
+	assert.Equal(t, []byte(fmt.Sprintf("%09d", 0)), et0.Value)
+	assert.Nil(t, err)
+
+	et1, err := db.Get([]byte(fmt.Sprintf("%09d", 1)))
+	assert.Nil(t, et1)
+	assert.NotNil(t, err)
+
+	time.Sleep(2 * time.Second)
+
+	et0, err = db.Get([]byte(fmt.Sprintf("%09d", 0)))
+	assert.Nil(t, et0)
+	assert.NotNil(t, err)
+
+	err = db.Close()
+	assert.Nil(t, err)
+
+	err = os.RemoveAll(db.option.Path)
+	assert.Nil(t, err)
+}
+
+func TestDB_TTL_Restart(t *testing.T) {
+	db, err := OpenDB(DefaultOption())
+	assert.Nil(t, err)
+	assert.NotNil(t, db)
+
+	err = db.Put([]byte(fmt.Sprintf("%09d", 0)), []byte(fmt.Sprintf("%09d", 0)), 2*time.Second)
+	assert.Nil(t, err)
+
+	et0, err := db.Get([]byte(fmt.Sprintf("%09d", 0)))
+	assert.Equal(t, []byte(fmt.Sprintf("%09d", 0)), et0.Value)
+	assert.Nil(t, err)
+
+	err = db.Close()
+	assert.Nil(t, err)
+
+	db, err = OpenDB(DefaultOption())
+	assert.Nil(t, err)
+	assert.NotNil(t, db)
+
+	time.Sleep(2 * time.Second)
+
+	et0, err = db.Get([]byte(fmt.Sprintf("%09d", 0)))
+	assert.Nil(t, et0)
+	assert.NotNil(t, err)
 
 	err = db.Close()
 	assert.Nil(t, err)
