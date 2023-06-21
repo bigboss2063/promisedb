@@ -27,18 +27,19 @@ const (
 	Tombstone
 )
 
-const EntryMetaSize = 2 + 4 + 8 + 4 + 4
+const EntryMetaSize = 2 + 4 + 8 + 8 + 4 + 4
 
 var (
 	ErrEntryWrong = errors.New("the data of entry is wrong")
 )
 
 type MetaData struct {
-	Crc       uint32
-	EntryType EntryType
-	Tstamp    uint64
-	Ksz       uint32
-	Vsz       uint32
+	Crc        uint32
+	EntryType  EntryType
+	Tstamp     uint64
+	Expiration uint64
+	Ksz        uint32
+	Vsz        uint32
 }
 
 type Entry struct {
@@ -51,7 +52,6 @@ type DataPos struct {
 	FileId uint32
 	Vsz    uint32
 	Vpos   uint32
-	Tstamp uint64
 }
 
 func NewEntry(key []byte, value []byte, entryType EntryType) *Entry {
@@ -71,11 +71,12 @@ func NewEntry(key []byte, value []byte, entryType EntryType) *Entry {
 func (et *Entry) DecodeLogEntryMeta(data []byte) {
 
 	metaData := &MetaData{
-		Crc:       binaryx.Uint32(data[:4]),
-		EntryType: binaryx.Uint16(data[4:6]),
-		Tstamp:    binaryx.Uint64(data[6:14]),
-		Ksz:       binaryx.Uint32(data[14:18]),
-		Vsz:       binaryx.Uint32(data[18:22]),
+		Crc:        binaryx.Uint32(data[:4]),
+		EntryType:  binaryx.Uint16(data[4:6]),
+		Tstamp:     binaryx.Uint64(data[6:14]),
+		Expiration: binaryx.Uint64(data[14:22]),
+		Ksz:        binaryx.Uint32(data[22:26]),
+		Vsz:        binaryx.Uint32(data[26:30]),
 	}
 
 	et.MetaData = metaData
@@ -98,6 +99,7 @@ func (et *Entry) EncodeLogEntry() []byte {
 	buf = append(buf, binaryx.PutUint32(et.MetaData.Crc)...)
 	buf = append(buf, binaryx.PutUint16(et.MetaData.EntryType)...)
 	buf = append(buf, binaryx.PutUint64(et.MetaData.Tstamp)...)
+	buf = append(buf, binaryx.PutUint64(et.MetaData.Expiration)...)
 	buf = append(buf, binaryx.PutUint32(et.MetaData.Ksz)...)
 	buf = append(buf, binaryx.PutUint32(et.MetaData.Vsz)...)
 	buf = append(buf, et.Key...)
