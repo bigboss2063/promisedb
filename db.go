@@ -14,8 +14,10 @@
 package promisedb
 
 import (
+	"context"
 	"errors"
 	"github.com/bigboss2063/promisedb/pkg/ttl"
+	"github.com/bigboss2063/promisedb/pkg/watch"
 	"github.com/samber/lo"
 	"io"
 	"log"
@@ -48,6 +50,7 @@ type DB struct {
 	compacting      bool
 	gm              *GarbageManager
 	ttl             *ttl.TTL
+	wm              *watch.WatcherManager
 }
 
 func OpenDB(option *Option) (*DB, error) {
@@ -69,6 +72,7 @@ func OpenDB(option *Option) (*DB, error) {
 		archivedFiles: make(map[uint32]*DataFile),
 		keyDir:        NewIndex(),
 		gm:            gm,
+		wm:            watch.NewWatcherManager(),
 	}
 
 	db.ttl = ttl.NewTTL(func(key string) error {
@@ -95,6 +99,8 @@ func OpenDB(option *Option) (*DB, error) {
 	}
 
 	go db.ttl.Start()
+
+	go db.wm.Start()
 
 	return db, nil
 }
@@ -289,6 +295,8 @@ func (db *DB) put(key []byte, value []byte, duration time.Duration) error {
 
 	db.keyDir.Put(string(key), dataPos)
 
+	db.wm.Notify(&watch.WatchEvent{Key: string(key), Value: value, EventType: watch.Put})
+
 	return nil
 }
 
@@ -363,6 +371,9 @@ func (db *DB) Del(key []byte) error {
 	db.lock.Unlock()
 
 	db.keyDir.Del(string(key))
+
+	db.wm.Notify(&watch.WatchEvent{Key: string(key), Value: nil, EventType: watch.Del})
+
 	return nil
 }
 
@@ -512,6 +523,10 @@ func (db *DB) replaceActiveFile() error {
 	db.activeFile = newDataFile
 
 	return nil
+}
+
+func (db *DB) Watch(ctx context.Context, key string) {
+	db.wm.Watch(ctx, key)
 }
 
 func (db *DB) Close() error {

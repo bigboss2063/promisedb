@@ -14,8 +14,10 @@
 package promisedb
 
 import (
+	"context"
 	"fmt"
 	"github.com/bigboss2063/promisedb/pkg/util"
+	"github.com/bigboss2063/promisedb/pkg/watch"
 	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"os"
@@ -346,4 +348,61 @@ func TestDB_TTL_Restart(t *testing.T) {
 
 	err = os.RemoveAll(db.option.Path)
 	assert.Nil(t, err)
+}
+
+func TestDB_Watch(t *testing.T) {
+	db, err := OpenDB(DefaultOption())
+	assert.Nil(t, err)
+	assert.NotNil(t, db)
+
+	defer func() {
+		err = db.Close()
+		assert.Nil(t, err)
+
+		err = os.RemoveAll(db.option.Path)
+		assert.Nil(t, err)
+	}()
+
+	key := "key"
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	watchCh := db.wm.Watch(ctx, key)
+
+	go func() {
+		_ = db.Put([]byte(key), []byte("value1"))
+		_ = db.Put([]byte(key), []byte("value2"))
+		_ = db.Del([]byte(key))
+	}()
+
+	expectedEvents := []*watch.WatchEvent{
+		{Key: key, Value: []byte("value1"), EventType: watch.Put},
+		{Key: key, Value: []byte("value2"), EventType: watch.Put},
+		{Key: key, Value: nil, EventType: watch.Del},
+	}
+
+	for _, expectedEvent := range expectedEvents {
+		select {
+		case <-ctx.Done():
+			assert.Fail(t, "Context canceled before receiving all events")
+			return
+		case event, ok := <-watchCh:
+			assert.True(t, ok)
+			assert.Equal(t, expectedEvent, event)
+		}
+	}
+
+	ctx, cancel = context.WithCancel(context.Background())
+	watchCh = db.wm.Watch(ctx, key)
+
+	go func() {
+		cancel()
+	}()
+
+	select {
+	case <-ctx.Done():
+		break
+	case _, _ = <-watchCh:
+		assert.Fail(t, "Context should be canceled before receiving all events")
+	}
 }
