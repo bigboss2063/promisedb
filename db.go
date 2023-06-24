@@ -559,5 +559,7 @@ func (db *DB) Close() error {
 
 	db.ttl.Stop()
 
+	db.wm.Close()
+
 	return err
 }
