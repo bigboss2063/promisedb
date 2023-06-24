@@ -291,11 +291,11 @@ func (db *DB) put(key []byte, value []byte, duration time.Duration) error {
 		return err
 	}
 
+	db.Notify(string(key), value, watch.Put)
+
 	db.lock.Unlock()
 
 	db.keyDir.Put(string(key), dataPos)
-
-	db.wm.Notify(&watch.WatchEvent{Key: string(key), Value: value, EventType: watch.Put})
 
 	return nil
 }
@@ -368,11 +368,11 @@ func (db *DB) Del(key []byte) error {
 
 	db.ttl.Delete(string(key))
 
+	db.Notify(string(key), nil, watch.Del)
+
 	db.lock.Unlock()
 
 	db.keyDir.Del(string(key))
-
-	db.wm.Notify(&watch.WatchEvent{Key: string(key), Value: nil, EventType: watch.Del})
 
 	return nil
 }
@@ -527,6 +527,12 @@ func (db *DB) replaceActiveFile() error {
 
 func (db *DB) Watch(ctx context.Context, key string) {
 	db.wm.Watch(ctx, key)
+}
+
+func (db *DB) Notify(key string, value []byte, entryType watch.EventType) {
+	if db.wm.Watched(key) {
+		db.wm.Notify(&watch.WatchEvent{Key: key, Value: value, EventType: entryType})
+	}
 }
 
 func (db *DB) Close() error {

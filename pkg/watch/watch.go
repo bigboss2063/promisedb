@@ -92,6 +92,11 @@ func (wm *WatcherManager) UnWatch(watcher *Watcher) {
 	}
 }
 
+func (wm *WatcherManager) Watched(key string) bool {
+	_, ok := wm.keyToWatchers[key]
+	return ok
+}
+
 func (wm *WatcherManager) Notify(watchEvent *WatchEvent) {
 	wm.queue.write(watchEvent)
 }
