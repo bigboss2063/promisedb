@@ -61,7 +61,7 @@ func (wm *WatcherManager) Watch(ctx context.Context, key string) <-chan *WatchEv
 	watcher := &Watcher{
 		key:      key,
 		ctx:      ctx,
-		respCh:   make(chan *WatchEvent),
+		respCh:   make(chan *WatchEvent, 1024),
 		canceled: false,
 	}
 
@@ -105,18 +105,13 @@ func (wm *WatcherManager) Start() {
 
 		wm.lock.RLock()
 		for watcher := range wm.keyToWatchers[event.Key] {
-			w := watcher
 			if watcher.canceled {
 				continue
 			}
 
-			go w.sendResp(event)
+			watcher.sendResp(event)
 		}
 		wm.lock.RUnlock()
-
-		// Todo I'm not sure why I need to include a 1-millisecond sleep here
-		// but if I remove it, the code doesn't execute properly.
-		time.Sleep(1 * time.Millisecond)
 	}
 }
 
@@ -143,7 +138,7 @@ type Watcher struct {
 }
 
 func (w *Watcher) sendResp(event *WatchEvent) {
-	timeout := 1 * time.Second
+	timeout := 100 * time.Millisecond
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 
