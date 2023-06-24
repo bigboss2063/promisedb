@@ -58,7 +58,7 @@ func main() {
 
 - [ ] Support transaction(Serializable Isolation) to ensure ACID properties.(Since bitcask needs to put all indexes in memory, the cost of implementing MVCC is too high, so the SSI isolation level is not considered).
 - [x] Support TTL(Implement expired deletion based on time heap).
-- [x] Support Watch.
+- [x] Support Watch(There are some pref problems).
 - [ ] Support Redis protocol and commands.
 - [ ] Support some more complex data structures, such as List, Hash, etc.
 - [ ] Support distributed cluster based on Raft algorithm.
