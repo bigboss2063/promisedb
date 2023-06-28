@@ -41,7 +41,7 @@ var (
 type DB struct {
 	closed          bool
 	lock            *sync.RWMutex
-	option          *Option
+	options         *Options
 	activeFile      *DataFile
 	archivedFiles   map[uint32]*DataFile
 	archivedFileIds []uint32
@@ -53,7 +53,7 @@ type DB struct {
 	wm              *watch.WatcherManager
 }
 
-func OpenDB(option *Option) (*DB, error) {
+func OpenDB(option *Options) (*DB, error) {
 	if _, err := os.Stat(option.Path); os.IsNotExist(err) {
 		if err = os.MkdirAll(option.Path, os.ModePerm); err != nil {
 			return nil, err
@@ -68,7 +68,7 @@ func OpenDB(option *Option) (*DB, error) {
 	db := &DB{
 		closed:        false,
 		lock:          &sync.RWMutex{},
-		option:        option,
+		options:       option,
 		archivedFiles: make(map[uint32]*DataFile),
 		keyDir:        NewIndex(),
 		gm:            gm,
@@ -85,7 +85,7 @@ func OpenDB(option *Option) (*DB, error) {
 	}
 
 	if db.activeFile == nil {
-		dataFile, err := CreateDataFile(db.option.Path, db.nextFileId)
+		dataFile, err := CreateDataFile(db.options.Path, db.nextFileId)
 		if err != nil {
 			return nil, err
 		}
@@ -106,7 +106,7 @@ func OpenDB(option *Option) (*DB, error) {
 }
 
 func (db *DB) loadDataFiles() error {
-	entries, err := os.ReadDir(db.option.Path)
+	entries, err := os.ReadDir(db.options.Path)
 	if err != nil {
 		return err
 	}
@@ -134,7 +134,7 @@ func (db *DB) loadDataFiles() error {
 	})
 
 	for _, id := range fid {
-		dataFile, err := OpenDataFile(db.option.Path, id)
+		dataFile, err := OpenDataFile(db.options.Path, id)
 		if err != nil {
 			return err
 		}
@@ -303,7 +303,7 @@ func (db *DB) put(key []byte, value []byte, duration time.Duration) error {
 func (db *DB) appendLogEntry(et *Entry) (*DataPos, error) {
 	data := et.EncodeLogEntry()
 
-	if db.activeFile.size+uint32(len(data)) >= db.option.MaxDataFileSize {
+	if db.activeFile.size+uint32(len(data)) >= db.options.MaxDataFileSize {
 		err := db.replaceActiveFile()
 		if err != nil {
 			return nil, err
@@ -315,7 +315,7 @@ func (db *DB) appendLogEntry(et *Entry) (*DataPos, error) {
 		return nil, err
 	}
 
-	if db.option.Sync {
+	if db.options.Sync {
 		if err := db.activeFile.Sync(); err != nil {
 			return nil, err
 		}
@@ -394,7 +394,7 @@ func (db *DB) Compaction() error {
 
 	garbageSize := db.gm.getGarbageSize(db.activeFile.fileId)
 	garbageRate := float64(garbageSize) / float64(db.activeFile.size)
-	if garbageRate >= db.option.GarbageRate {
+	if garbageRate >= db.options.GarbageRate {
 		err := db.replaceActiveFile()
 		if err != nil {
 			return err
@@ -405,7 +405,7 @@ func (db *DB) Compaction() error {
 		df := db.archivedFiles[fileId]
 		garbageSize = db.gm.getGarbageSize(fileId)
 		garbageRate = float64(garbageSize) / float64(df.size)
-		if garbageRate >= db.option.GarbageRate {
+		if garbageRate >= db.options.GarbageRate {
 			waitingCompactFiles = append(waitingCompactFiles, df)
 		}
 	}
@@ -462,11 +462,11 @@ func (db *DB) resetKeyDir(et *Entry, fileId uint32, offset uint32) error {
 
 func (db *DB) compactor() {
 
-	if db.option.CompactionInternal == 0 {
+	if db.options.CompactionInternal == 0 {
 		return
 	}
 
-	ticker := time.NewTicker(db.option.CompactionInternal)
+	ticker := time.NewTicker(db.options.CompactionInternal)
 	defer ticker.Stop()
 
 	stop := make(chan os.Signal)
@@ -514,7 +514,7 @@ func (db *DB) replaceActiveFile() error {
 	db.archivedFiles[db.activeFile.fileId] = db.activeFile
 	db.archivedFileIds = append(db.archivedFileIds, db.activeFile.fileId)
 
-	newDataFile, err := CreateDataFile(db.option.Path, db.nextFileId)
+	newDataFile, err := CreateDataFile(db.options.Path, db.nextFileId)
 	if err != nil {
 		return err
 	}

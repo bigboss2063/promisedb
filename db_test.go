@@ -27,19 +27,19 @@ import (
 )
 
 func TestDB_Open_Close(t *testing.T) {
-	db, err := OpenDB(DefaultOption())
+	db, err := OpenDB(DefaultOptions())
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
 	err = db.Close()
 	assert.Nil(t, err)
 
-	err = os.RemoveAll(db.option.Path)
+	err = os.RemoveAll(db.options.Path)
 	assert.Nil(t, err)
 }
 
 func TestDB_Put(t *testing.T) {
-	db, err := OpenDB(DefaultOption())
+	db, err := OpenDB(DefaultOptions())
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
@@ -64,7 +64,7 @@ func TestDB_Put(t *testing.T) {
 	err = db.Close()
 	assert.Nil(t, err)
 
-	db, err = OpenDB(DefaultOption())
+	db, err = OpenDB(DefaultOptions())
 
 	// After restarting, read key-value pairs from multiple data files
 	for i := 0; i < 100000; i++ {
@@ -78,12 +78,12 @@ func TestDB_Put(t *testing.T) {
 	err = db.Close()
 	assert.Nil(t, err)
 
-	err = os.RemoveAll(db.option.Path)
+	err = os.RemoveAll(db.options.Path)
 	assert.Nil(t, err)
 }
 
 func TestDB_Get(t *testing.T) {
-	db, err := OpenDB(DefaultOption())
+	db, err := OpenDB(DefaultOptions())
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
@@ -128,7 +128,7 @@ func TestDB_Get(t *testing.T) {
 	assert.Nil(t, err)
 
 	// get key-value pairs from multi data files after restarting
-	db, err = OpenDB(DefaultOption())
+	db, err = OpenDB(DefaultOptions())
 
 	for i := 0; i < 200000; i++ {
 		et, err := db.Get([]byte(fmt.Sprintf("%09d", i)))
@@ -139,12 +139,12 @@ func TestDB_Get(t *testing.T) {
 	err = db.Close()
 	assert.Nil(t, err)
 
-	err = os.RemoveAll(db.option.Path)
+	err = os.RemoveAll(db.options.Path)
 	assert.Nil(t, err)
 }
 
 func TestDB_Del(t *testing.T) {
-	db, err := OpenDB(DefaultOption())
+	db, err := OpenDB(DefaultOptions())
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
@@ -168,12 +168,12 @@ func TestDB_Del(t *testing.T) {
 	err = db.Close()
 	assert.Nil(t, err)
 
-	err = os.RemoveAll(db.option.Path)
+	err = os.RemoveAll(db.options.Path)
 	assert.Nil(t, err)
 }
 
 func TestDB_Replace_Active_File(t *testing.T) {
-	db, err := OpenDB(DefaultOption())
+	db, err := OpenDB(DefaultOptions())
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
@@ -187,12 +187,12 @@ func TestDB_Replace_Active_File(t *testing.T) {
 	err = db.Close()
 	assert.Nil(t, err)
 
-	err = os.RemoveAll(db.option.Path)
+	err = os.RemoveAll(db.options.Path)
 	assert.Nil(t, err)
 }
 
 func TestDB_Concurrency(t *testing.T) {
-	db, err := OpenDB(DefaultOption())
+	db, err := OpenDB(DefaultOptions())
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
@@ -222,12 +222,12 @@ func TestDB_Concurrency(t *testing.T) {
 	err = db.Close()
 	assert.Nil(t, err)
 
-	err = os.RemoveAll(db.option.Path)
+	err = os.RemoveAll(db.options.Path)
 	assert.Nil(t, err)
 }
 
 func TestDB_Compaction(t *testing.T) {
-	db, err := OpenDB(DefaultOption())
+	db, err := OpenDB(DefaultOptions())
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
@@ -280,12 +280,12 @@ func TestDB_Compaction(t *testing.T) {
 	err = db.Close()
 	assert.Nil(t, err)
 
-	err = os.RemoveAll(db.option.Path)
+	err = os.RemoveAll(db.options.Path)
 	assert.Nil(t, err)
 }
 
 func TestDB_TTL(t *testing.T) {
-	db, err := OpenDB(DefaultOption())
+	db, err := OpenDB(DefaultOptions())
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
@@ -314,12 +314,12 @@ func TestDB_TTL(t *testing.T) {
 	err = db.Close()
 	assert.Nil(t, err)
 
-	err = os.RemoveAll(db.option.Path)
+	err = os.RemoveAll(db.options.Path)
 	assert.Nil(t, err)
 }
 
 func TestDB_TTL_Restart(t *testing.T) {
-	db, err := OpenDB(DefaultOption())
+	db, err := OpenDB(DefaultOptions())
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
@@ -333,7 +333,7 @@ func TestDB_TTL_Restart(t *testing.T) {
 	err = db.Close()
 	assert.Nil(t, err)
 
-	db, err = OpenDB(DefaultOption())
+	db, err = OpenDB(DefaultOptions())
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
@@ -346,12 +346,12 @@ func TestDB_TTL_Restart(t *testing.T) {
 	err = db.Close()
 	assert.Nil(t, err)
 
-	err = os.RemoveAll(db.option.Path)
+	err = os.RemoveAll(db.options.Path)
 	assert.Nil(t, err)
 }
 
 func TestDB_Watch(t *testing.T) {
-	db, err := OpenDB(DefaultOption())
+	db, err := OpenDB(DefaultOptions())
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
@@ -359,7 +359,7 @@ func TestDB_Watch(t *testing.T) {
 		err = db.Close()
 		assert.Nil(t, err)
 
-		err = os.RemoveAll(db.option.Path)
+		err = os.RemoveAll(db.options.Path)
 		assert.Nil(t, err)
 	}()
 

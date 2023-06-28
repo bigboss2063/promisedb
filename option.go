@@ -26,7 +26,7 @@ const (
 	GarbageManagerBufSize = 8 * 1024 * 1024
 )
 
-type Option struct {
+type Options struct {
 	Sync                  bool
 	Path                  string
 	MaxDataFileSize       uint32
@@ -35,8 +35,8 @@ type Option struct {
 	GarbageManagerBufSize int
 }
 
-func DefaultOption() *Option {
-	return &Option{
+func DefaultOptions() *Options {
+	return &Options{
 		Sync:                  false,
 		Path:                  os.TempDir() + DBDirectory,
 		MaxDataFileSize:       MaxDataFileSize,

@@ -15,9 +15,14 @@ package util
 
 import (
 	"crypto/rand"
+	"fmt"
 )
 
 const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
+
+func GetTestKey(n int) []byte {
+	return []byte(fmt.Sprintf("%09d", n))
+}
 
 func RandomBytes(length int) []byte {
 	randomBytes := make([]byte, length)

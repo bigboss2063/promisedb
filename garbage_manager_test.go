@@ -20,7 +20,7 @@ import (
 )
 
 func TestNewGarbageManager(t *testing.T) {
-	option := DefaultOption()
+	option := DefaultOptions()
 
 	err := os.MkdirAll(option.Path, os.ModePerm)
 	assert.Nil(t, err)

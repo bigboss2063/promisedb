@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	option := promisedb.DefaultOption()
+	option := promisedb.DefaultOptions()
 	db, err := promisedb.OpenDB(option)
 	defer db.Close()
 	if err != nil {

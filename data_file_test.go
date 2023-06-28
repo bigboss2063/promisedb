@@ -79,7 +79,7 @@ func TestDataFile_WriteAt_ReadAt(t *testing.T) {
 }
 
 func TestDataFile_ReadBatch(t *testing.T) {
-	path := DefaultOption().Path
+	path := DefaultOptions().Path
 
 	err := os.MkdirAll(path, os.ModePerm)
 	assert.Nil(t, err)
