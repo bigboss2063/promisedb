@@ -21,7 +21,6 @@ import (
 	"log"
 	"os"
 	"testing"
-	"time"
 )
 
 func TestNewDataFile(t *testing.T) {
@@ -61,7 +60,6 @@ func TestDataFile_WriteAt_ReadAt(t *testing.T) {
 		Value: value,
 		MetaData: &MetaData{
 			EntryType: NormalEntry,
-			Tstamp:    uint64(time.Now().Unix()),
 			Ksz:       uint32(len(key)),
 			Vsz:       uint32(len(value)),
 		},

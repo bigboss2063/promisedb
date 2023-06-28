@@ -17,7 +17,6 @@ import (
 	"errors"
 	"github.com/bigboss2063/promisedb/pkg/binaryx"
 	"hash/crc32"
-	"time"
 )
 
 type EntryType = uint16
@@ -25,6 +24,8 @@ type EntryType = uint16
 const (
 	NormalEntry EntryType = iota
 	Tombstone
+	Begin
+	Commit
 )
 
 const EntryMetaSize = 2 + 4 + 8 + 8 + 4 + 4
@@ -36,7 +37,7 @@ var (
 type MetaData struct {
 	Crc        uint32
 	EntryType  EntryType
-	Tstamp     uint64
+	TxnId      uint64
 	Expiration uint64
 	Ksz        uint32
 	Vsz        uint32
@@ -60,7 +61,6 @@ func NewEntry(key []byte, value []byte, entryType EntryType) *Entry {
 		Value: value,
 		MetaData: &MetaData{
 			EntryType: entryType,
-			Tstamp:    uint64(time.Now().Unix()),
 			Ksz:       uint32(len(key)),
 			Vsz:       uint32(len(value)),
 		},
@@ -73,7 +73,7 @@ func (et *Entry) DecodeLogEntryMeta(data []byte) {
 	metaData := &MetaData{
 		Crc:        binaryx.Uint32(data[:4]),
 		EntryType:  binaryx.Uint16(data[4:6]),
-		Tstamp:     binaryx.Uint64(data[6:14]),
+		TxnId:      binaryx.Uint64(data[6:14]),
 		Expiration: binaryx.Uint64(data[14:22]),
 		Ksz:        binaryx.Uint32(data[22:26]),
 		Vsz:        binaryx.Uint32(data[26:30]),
@@ -98,7 +98,7 @@ func (et *Entry) EncodeLogEntry() []byte {
 
 	buf = append(buf, binaryx.PutUint32(et.MetaData.Crc)...)
 	buf = append(buf, binaryx.PutUint16(et.MetaData.EntryType)...)
-	buf = append(buf, binaryx.PutUint64(et.MetaData.Tstamp)...)
+	buf = append(buf, binaryx.PutUint64(et.MetaData.TxnId)...)
 	buf = append(buf, binaryx.PutUint64(et.MetaData.Expiration)...)
 	buf = append(buf, binaryx.PutUint32(et.MetaData.Ksz)...)
 	buf = append(buf, binaryx.PutUint32(et.MetaData.Vsz)...)
