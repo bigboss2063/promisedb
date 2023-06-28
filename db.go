@@ -344,21 +344,14 @@ func (db *DB) Del(key []byte) error {
 
 	db.lock.Lock()
 
-	var df *DataFile
 	var garbageSize int
 	if dataPos.FileId == db.activeFile.fileId {
-		df = db.activeFile
 		garbageSize = EntryMetaSize + len(key) + int(dataPos.Vsz) + et.Size()
 		db.gm.sendUpdateInfo(dataPos.FileId, uint32(garbageSize))
 	} else {
-		df = db.archivedFiles[dataPos.FileId]
 		garbageSize = EntryMetaSize + len(key) + int(dataPos.Vsz)
 		db.gm.sendUpdateInfo(dataPos.FileId, uint32(garbageSize))
 		db.gm.sendUpdateInfo(db.activeFile.fileId, uint32(et.Size()))
-	}
-
-	if df == nil {
-		return ErrDataFileNotExist
 	}
 
 	_, err := db.appendLogEntry(et)
